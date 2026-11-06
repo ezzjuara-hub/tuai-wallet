@@ -75,9 +75,13 @@ fun WithdrawScreen(
     onResetClick: () -> Unit,
     onBackspaceClick: () -> Unit,
     onWithdrawComplete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onExchangeCardClick: () -> Unit = {},
+    onPlusPresetClick: () -> Unit = onResetClick
 ) {
     BackHandler(onBack = onBackToWallet)
+    val activeAsset = uiState.assets.find { it.id == uiState.selectedWithdrawAssetId }
+        ?: uiState.assets.first()
 
     Box(
         modifier = modifier
@@ -154,22 +158,32 @@ fun WithdrawScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                // Back "Exchange" Card (Peach #EAC2B0)
-                Box(
+                // Back "Exchange" Card (Peach #EAC2B0) - Interactive Asset/Destination Picker
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .height(84.dp)
                         .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
                         .background(TuaiExchangeCardBg)
-                        .padding(horizontal = 22.dp, vertical = 18.dp),
-                    contentAlignment = Alignment.TopStart
+                        .clickable(onClick = onExchangeCardClick)
+                        .padding(horizontal = 22.dp, vertical = 18.dp)
+                        .testTag("withdraw_exchange_card"),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
                     Text(
                         text = stringResource(R.string.exchange_label),
                         fontFamily = PlusJakartaSans,
                         fontWeight = FontWeight.Medium,
                         fontSize = 15.sp,
+                        color = TuaiExchangeText
+                    )
+                    Text(
+                        text = "${activeAsset.symbol} • ${uiState.withdrawDestination.substringBefore(" (")} ▾",
+                        fontFamily = PlusJakartaSans,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.5.sp,
                         color = TuaiExchangeText
                     )
                 }
@@ -221,7 +235,7 @@ fun WithdrawScreen(
                                     .size(44.dp)
                                     .clip(CircleShape)
                                     .background(TuaiPlusCircleBg)
-                                    .clickable(onClick = onResetClick)
+                                    .clickable(onClick = onPlusPresetClick)
                                     .testTag("balance_plus_button"),
                                 contentAlignment = Alignment.Center
                             ) {

@@ -64,6 +64,9 @@ import com.example.ui.components.NavSettingsCogIcon
 import com.example.ui.components.NavWalletFilledIcon
 import com.example.ui.components.NotificationBellWithDotIcon
 import com.example.ui.components.TetherSymbolIcon
+import com.example.ui.components.TuaiChartTabContent
+import com.example.ui.components.TuaiHomeTabContent
+import com.example.ui.components.TuaiSettingsTabContent
 import com.example.ui.theme.PlusJakartaSans
 import com.example.ui.theme.TuaiBalanceCream
 import com.example.ui.theme.TuaiBellCircleBg
@@ -77,6 +80,7 @@ import com.example.ui.theme.TuaiUsdtGreen
 import com.example.ui.theme.TuaiWalletIdText
 import com.example.viewmodel.AssetIconType
 import com.example.viewmodel.CryptoAssetItem
+import com.example.viewmodel.TuaiActiveModal
 import com.example.viewmodel.TuaiUiState
 import com.example.viewmodel.WalletTransactionItem
 
@@ -88,7 +92,18 @@ fun WalletScreen(
     onSelectAssetTab: (Int) -> Unit,
     onSelectBottomNav: (Int) -> Unit,
     onShowMessage: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenModal: (TuaiActiveModal) -> Unit = {},
+    onAssetClick: (CryptoAssetItem) -> Unit = { onNavigateToWithdraw() },
+    onTransactionClick: (WalletTransactionItem) -> Unit = { onNavigateToWithdraw() },
+    onSelectTxFilter: (String) -> Unit = {},
+    onSelectChartTimeframe: (String) -> Unit = {},
+    onContributeGoal: (String) -> Unit = {},
+    onTogglePrivacy: () -> Unit = {},
+    onToggleBiometric: () -> Unit = {},
+    onToggleNotifications: () -> Unit = {},
+    onSyncFirebase: () -> Unit = {},
+    onResetData: () -> Unit = {}
 ) {
     BackHandler(onBack = onBackToLogin)
     val clipboardManager = LocalClipboardManager.current
@@ -138,7 +153,9 @@ fun WalletScreen(
                                 .size(42.dp)
                                 .clip(CircleShape)
                                 .background(TuaiBellCircleBg)
-                                .clickable { onShowMessage("Tidak ada notifikasi baru") }
+                                .clickable {
+                                    onOpenModal(TuaiActiveModal.NOTIFICATIONS)
+                                }
                                 .testTag("wallet_notification_button"),
                             contentAlignment = Alignment.Center
                         ) {
@@ -148,13 +165,15 @@ fun WalletScreen(
                             )
                         }
 
-                        // Circular User Profile Photo (extracted from reference image)
+                        // Circular User Profile Photo
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(CircleShape)
                                 .background(TuaiBellCircleBg)
-                                .clickable(onClick = onBackToLogin)
+                                .clickable {
+                                    onOpenModal(TuaiActiveModal.PROFILE_ACCOUNT)
+                                }
                                 .testTag("wallet_profile_avatar"),
                             contentAlignment = Alignment.Center
                         ) {
@@ -172,15 +191,17 @@ fun WalletScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Large Balance Text: "$23,867"
+                // Large Balance Text: "$23,867" (supports tap to toggle privacy mask)
                 Text(
-                    text = uiState.walletBalance,
+                    text = if (uiState.isBalanceHidden) "$••••••" else uiState.walletBalance,
                     fontFamily = PlusJakartaSans,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 50.sp,
                     color = TuaiBalanceCream,
                     letterSpacing = (-1).sp,
-                    modifier = Modifier.testTag("wallet_balance_text")
+                    modifier = Modifier
+                        .clickable { onTogglePrivacy() }
+                        .testTag("wallet_balance_text")
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -223,7 +244,7 @@ fun WalletScreen(
                 ) {
                     WalletActionCircleButton(
                         testTag = "action_receive_button",
-                        onClick = { onShowMessage("Wallet ID siap menerima aset") }
+                        onClick = { onOpenModal(TuaiActiveModal.RECEIVE_QR) }
                     ) {
                         ActionArrowDownLeftIcon(size = 20.dp)
                     }
@@ -237,14 +258,14 @@ fun WalletScreen(
 
                     WalletActionCircleButton(
                         testTag = "action_swap_button",
-                        onClick = onNavigateToWithdraw
+                        onClick = { onOpenModal(TuaiActiveModal.SWAP_ASSET) }
                     ) {
                         ActionSwapCircularIcon(size = 22.dp)
                     }
 
                     WalletActionCircleButton(
                         testTag = "action_add_button",
-                        onClick = onNavigateToWithdraw
+                        onClick = { onOpenModal(TuaiActiveModal.TOP_UP) }
                     ) {
                         ActionPlusIcon(size = 20.dp)
                     }
@@ -276,9 +297,7 @@ fun WalletScreen(
 
                     // White Folder-Tab Sheet Path matching the middle phone in reference image
                     val sheetPath = Path().apply {
-                        // Start at bottom-left
                         moveTo(0f, h)
-                        // Up to top-left of "My Assets" tab
                         lineTo(0f, topCorner)
                         arcTo(
                             rect = Rect(0f, 0f, topCorner * 2f, topCorner * 2f),
@@ -286,15 +305,12 @@ fun WalletScreen(
                             sweepAngleDegrees = 90f,
                             forceMoveTo = false
                         )
-                        // Top horizontal edge of "My Assets" tab
                         lineTo(w * 0.36f, 0f)
-                        // Smooth S-curve sloping down to the right tab baseline
                         cubicTo(
                             w * 0.44f, 0f,
                             w * 0.44f, tabHeight,
                             w * 0.53f, tabHeight
                         )
-                        // Horizontal baseline across "My Transaction" to right edge corner
                         lineTo(w - topCorner, tabHeight)
                         arcTo(
                             rect = Rect(
@@ -307,7 +323,6 @@ fun WalletScreen(
                             sweepAngleDegrees = 90f,
                             forceMoveTo = false
                         )
-                        // Down to bottom-right
                         lineTo(w, h)
                         close()
                     }
@@ -329,7 +344,10 @@ fun WalletScreen(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                    onClick = { onSelectAssetTab(0) }
+                                    onClick = {
+                                        onSelectBottomNav(1)
+                                        onSelectAssetTab(0)
+                                    }
                                 )
                                 .padding(start = 24.dp, top = 4.dp)
                                 .testTag("tab_my_assets"),
@@ -351,7 +369,10 @@ fun WalletScreen(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                    onClick = { onSelectAssetTab(1) }
+                                    onClick = {
+                                        onSelectBottomNav(1)
+                                        onSelectAssetTab(1)
+                                    }
                                 )
                                 .padding(end = 16.dp)
                                 .testTag("tab_my_transaction"),
@@ -377,50 +398,134 @@ fun WalletScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // List Content inside the White Surface
-                    if (uiState.selectedAssetTab == 0) {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(horizontal = 24.dp)
-                        ) {
-                            itemsIndexed(
-                                items = uiState.assets,
-                                key = { _, item -> item.id }
-                            ) { index, asset ->
-                                AssetListRow(
-                                    asset = asset,
-                                    onClick = onNavigateToWithdraw
-                                )
-                                if (index < uiState.assets.lastIndex) {
-                                    HorizontalDivider(
-                                        thickness = 1.dp,
-                                        color = Color(0xFFF5F1EC)
-                                    )
-                                }
-                            }
+                    // Content switches based on selectedBottomNav (0=Home, 1=Wallet, 2=Chart, 3=Settings)
+                    when (uiState.selectedBottomNav) {
+                        0 -> {
+                            TuaiHomeTabContent(
+                                uiState = uiState,
+                                onNavigateToWithdraw = onNavigateToWithdraw,
+                                onOpenModal = onOpenModal,
+                                onContributeGoal = onContributeGoal,
+                                onSwitchToWalletTab = { onSelectBottomNav(1) },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(horizontal = 24.dp)
-                        ) {
-                            itemsIndexed(
-                                items = uiState.transactions,
-                                key = { _, tx -> tx.id }
-                            ) { index, tx ->
-                                TransactionListRow(
-                                    tx = tx,
-                                    onClick = onNavigateToWithdraw
-                                )
-                                if (index < uiState.transactions.lastIndex) {
-                                    HorizontalDivider(
-                                        thickness = 1.dp,
-                                        color = Color(0xFFF5F1EC)
-                                    )
+
+                        2 -> {
+                            TuaiChartTabContent(
+                                uiState = uiState,
+                                onSelectTimeframe = onSelectChartTimeframe,
+                                onNavigateToWithdraw = onNavigateToWithdraw,
+                                onOpenSwap = { onOpenModal(TuaiActiveModal.SWAP_ASSET) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        3 -> {
+                            TuaiSettingsTabContent(
+                                uiState = uiState,
+                                onTogglePrivacy = onTogglePrivacy,
+                                onToggleBiometric = onToggleBiometric,
+                                onToggleNotifications = onToggleNotifications,
+                                onSyncFirebase = onSyncFirebase,
+                                onResetData = onResetData,
+                                onLogout = onBackToLogin,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        else -> {
+                            // Default Wallet View (My Assets / My Transaction)
+                            if (uiState.selectedAssetTab == 0) {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                        .padding(horizontal = 24.dp)
+                                ) {
+                                    itemsIndexed(
+                                        items = uiState.assets,
+                                        key = { _, item -> item.id }
+                                    ) { index, asset ->
+                                        AssetListRow(
+                                            asset = asset,
+                                            onClick = { onAssetClick(asset) }
+                                        )
+                                        if (index < uiState.assets.lastIndex) {
+                                            HorizontalDivider(
+                                                thickness = 1.dp,
+                                                color = Color(0xFFF5F1EC)
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                val filteredTransactions = remember(
+                                    uiState.transactions,
+                                    uiState.selectedTxFilter
+                                ) {
+                                    when (uiState.selectedTxFilter) {
+                                        "IN" -> uiState.transactions.filter { it.isPositive }
+                                        "OUT" -> uiState.transactions.filter { !it.isPositive }
+                                        "SWAP" -> uiState.transactions.filter { it.category == "SWAP" }
+                                        else -> uiState.transactions
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(
+                                        "ALL" to "Semua",
+                                        "IN" to "Masuk",
+                                        "OUT" to "Keluar",
+                                        "SWAP" to "Swap"
+                                    ).forEach { (key, label) ->
+                                        val selected = uiState.selectedTxFilter == key
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(50))
+                                                .background(
+                                                    if (selected) TuaiTerracotta else Color(0xFFFAF3E8)
+                                                )
+                                                .clickable { onSelectTxFilter(key) }
+                                                .padding(horizontal = 12.dp, vertical = 5.dp)
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                fontFamily = PlusJakartaSans,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.5.sp,
+                                                color = if (selected) Color.White else TuaiTextDark
+                                            )
+                                        }
+                                    }
+                                }
+
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                        .padding(horizontal = 24.dp)
+                                ) {
+                                    itemsIndexed(
+                                        items = filteredTransactions,
+                                        key = { _, tx -> tx.id }
+                                    ) { index, tx ->
+                                        TransactionListRow(
+                                            tx = tx,
+                                            onClick = { onTransactionClick(tx) }
+                                        )
+                                        if (index < filteredTransactions.lastIndex) {
+                                            HorizontalDivider(
+                                                thickness = 1.dp,
+                                                color = Color(0xFFF5F1EC)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -450,18 +555,37 @@ fun WalletScreen(
                     ) {
                         BottomNavItem(
                             label = stringResource(R.string.nav_home),
-                            textColor = Color(0xFFB86B43),
-                            fontWeight = FontWeight.Normal,
+                            textColor = if (uiState.selectedBottomNav == 0) {
+                                TuaiTerracotta
+                            } else {
+                                Color(0xFFB86B43)
+                            },
+                            fontWeight = if (uiState.selectedBottomNav == 0) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            },
                             testTag = "nav_home_tab",
                             onClick = { onSelectBottomNav(0) }
                         ) {
-                            NavHomeSmileIcon(tint = Color(0xFFB86B43), size = 22.dp)
+                            NavHomeSmileIcon(
+                                tint = if (uiState.selectedBottomNav == 0) {
+                                    TuaiTerracotta
+                                } else {
+                                    Color(0xFFB86B43)
+                                },
+                                size = 22.dp
+                            )
                         }
 
                         BottomNavItem(
                             label = stringResource(R.string.nav_wallet),
                             textColor = TuaiTerracotta,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = if (uiState.selectedBottomNav == 1) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Medium
+                            },
                             testTag = "nav_wallet_tab",
                             onClick = { onSelectBottomNav(1) }
                         ) {
@@ -470,28 +594,52 @@ fun WalletScreen(
 
                         BottomNavItem(
                             label = stringResource(R.string.nav_chart),
-                            textColor = Color(0xFF2B2522),
-                            fontWeight = FontWeight.Normal,
+                            textColor = if (uiState.selectedBottomNav == 2) {
+                                TuaiTerracotta
+                            } else {
+                                Color(0xFF2B2522)
+                            },
+                            fontWeight = if (uiState.selectedBottomNav == 2) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            },
                             testTag = "nav_chart_tab",
-                            onClick = {
-                                onSelectBottomNav(2)
-                                onNavigateToWithdraw()
-                            }
+                            onClick = { onSelectBottomNav(2) }
                         ) {
-                            NavPieChartIcon(tint = Color(0xFF2B2522), size = 22.dp)
+                            NavPieChartIcon(
+                                tint = if (uiState.selectedBottomNav == 2) {
+                                    TuaiTerracotta
+                                } else {
+                                    Color(0xFF2B2522)
+                                },
+                                size = 22.dp
+                            )
                         }
 
                         BottomNavItem(
                             label = stringResource(R.string.nav_settings),
-                            textColor = Color(0xFF2B2522),
-                            fontWeight = FontWeight.Normal,
+                            textColor = if (uiState.selectedBottomNav == 3) {
+                                TuaiTerracotta
+                            } else {
+                                Color(0xFF2B2522)
+                            },
+                            fontWeight = if (uiState.selectedBottomNav == 3) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            },
                             testTag = "nav_settings_tab",
-                            onClick = {
-                                onSelectBottomNav(3)
-                                onBackToLogin()
-                            }
+                            onClick = { onSelectBottomNav(3) }
                         ) {
-                            NavSettingsCogIcon(tint = Color(0xFF2B2522), size = 22.dp)
+                            NavSettingsCogIcon(
+                                tint = if (uiState.selectedBottomNav == 3) {
+                                    TuaiTerracotta
+                                } else {
+                                    Color(0xFF2B2522)
+                                },
+                                size = 22.dp
+                            )
                         }
                     }
                 }

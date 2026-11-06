@@ -1,0 +1,923 @@
+:root {
+  --tuai-cream-bg: #FAF3E8;
+  --tuai-input-bg: #EFE5D4;
+  --tuai-input-icon: #6B5E54;
+  --tuai-input-hint: #75685C;
+  --tuai-text-dark: #231A16;
+  --tuai-text-secondary: #685E55;
+  --tuai-text-muted: #8C857E;
+  --tuai-terracotta: #CE5A31;
+  --tuai-terracotta-dark: #B94A22;
+  --tuai-terracotta-deep: #C2512A;
+  --tuai-gold-accent: #EAB956;
+  --tuai-balance-cream: #FCECD5;
+  --tuai-wallet-id-text: #F2C2A9;
+  --tuai-bell-circle-bg: #F7E8D4;
+  --tuai-exchange-card-bg: #EAC2B0;
+  --tuai-exchange-text: #9A4322;
+  --tuai-plus-circle-bg: #F9EAE1;
+  --tuai-keypad-circle-bg: #F3E6D4;
+  --tuai-social-btn-bg: #F5EFE4;
+  --tuai-social-btn-border: #E4D9C8;
+  --tuai-divider-line: #E3D8C6;
+  --tuai-eth-orange: #D05B33;
+  --tuai-bnb-yellow: #F0B90B;
+  --tuai-usdt-green: #6E8559;
+  --tuai-positive-green: #4C8C4A;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background-color: #F2ECE4;
+  color: var(--tuai-text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+button {
+  cursor: pointer;
+  transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Desktop & Mobile App Shell */
+.tuai-workspace-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  position: relative;
+}
+
+.tuai-top-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  max-width: 1240px;
+  margin-bottom: 16px;
+  padding: 10px 18px;
+  background: rgba(250, 243, 232, 0.92);
+  border: 1px solid #E5D9C8;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(35, 26, 22, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+.tuai-top-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tuai-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3B322C;
+  background: #EFE5D4;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.tuai-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tuai-positive-green);
+  box-shadow: 0 0 0 3px rgba(76, 140, 74, 0.2);
+}
+
+.tuai-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tuai-mode-btn {
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tuai-text-secondary);
+  background: transparent;
+}
+
+.tuai-mode-btn.active {
+  background: var(--tuai-terracotta);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(206, 90, 49, 0.28);
+}
+
+/* Grid for Single vs 3-Screen Showcase */
+.tuai-screens-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  width: 100%;
+  max-width: 1260px;
+  flex-wrap: wrap;
+}
+
+.tuai-phone-shell {
+  width: 390px;
+  height: 844px;
+  max-width: 100%;
+  border-radius: 44px;
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    0 24px 60px rgba(35, 26, 22, 0.16),
+    0 0 0 10px #241C18,
+    0 0 0 12px #4A3D36;
+  background: var(--tuai-cream-bg);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .tuai-workspace-root {
+    padding: 0;
+  }
+  .tuai-top-controls {
+    display: none;
+  }
+  .tuai-phone-shell {
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* Simulated Status Bar */
+.tuai-status-bar {
+  height: 40px;
+  padding: 10px 26px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 5;
+  flex-shrink: 0;
+}
+
+.tuai-status-bar.light {
+  color: var(--tuai-text-dark);
+}
+
+.tuai-status-bar.dark {
+  color: #FFFFFF;
+}
+
+/* SCREEN 1: LOGIN SCREEN */
+.tuai-login-screen {
+  flex: 1;
+  background: var(--tuai-cream-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 28px 20px;
+  overflow-y: auto;
+}
+
+.tuai-brand-lockup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.tuai-brand-title {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--tuai-terracotta-dark);
+  letter-spacing: -0.8px;
+  line-height: 1.05;
+}
+
+.tuai-brand-tagline {
+  text-align: center;
+  font-size: 13.5px;
+  color: #726960;
+  margin-top: 6px;
+}
+
+.tuai-login-heading {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--tuai-text-dark);
+  margin-top: 26px;
+}
+
+.tuai-login-subheading {
+  text-align: center;
+  font-size: 13.5px;
+  color: #595048;
+  margin-top: 4px;
+  margin-bottom: 22px;
+}
+
+.tuai-pill-input-wrap {
+  width: 100%;
+  height: 54px;
+  border-radius: 999px;
+  background: var(--tuai-input-bg);
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  border: 1.5px solid transparent;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.tuai-pill-input-wrap:focus-within {
+  border-color: var(--tuai-terracotta);
+  background: #F5ECE0;
+}
+
+.tuai-pill-input {
+  flex: 1;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--tuai-text-dark);
+  width: 100%;
+}
+
+.tuai-pill-input::placeholder {
+  color: var(--tuai-input-hint);
+  font-weight: 400;
+}
+
+.tuai-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -2px;
+  margin-bottom: 18px;
+}
+
+.tuai-forgot-btn {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tuai-terracotta);
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.tuai-primary-pill-btn {
+  width: 100%;
+  height: 54px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #D46237 0%, #C8542B 100%);
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 24px;
+  box-shadow: 0 10px 22px rgba(206, 90, 49, 0.32);
+}
+
+.tuai-primary-pill-btn .arrow-right {
+  position: absolute;
+  right: 24px;
+  font-size: 19px;
+}
+
+.tuai-divider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 22px 0 18px;
+}
+
+.tuai-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--tuai-divider-line);
+}
+
+.tuai-divider-text {
+  font-size: 13px;
+  color: #5A5047;
+}
+
+.tuai-social-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.tuai-social-circle-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--tuai-social-btn-bg);
+  border: 1px solid var(--tuai-social-btn-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tuai-social-circle-btn:hover {
+  background: #EFE5D4;
+}
+
+.tuai-login-footer {
+  text-align: center;
+  padding-top: 14px;
+  font-size: 13.5px;
+  color: #3B322C;
+}
+
+.tuai-login-footer strong {
+  color: var(--tuai-terracotta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* SCREEN 2: WALLET SCREEN */
+.tuai-wallet-screen {
+  flex: 1;
+  background: var(--tuai-terracotta);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tuai-wallet-top-section {
+  padding: 8px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tuai-wallet-topbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tuai-wallet-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.tuai-wallet-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tuai-circle-icon-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--tuai-bell-circle-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.tuai-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.15);
+}
+
+.tuai-balance-headline {
+  margin-top: 28px;
+  font-size: 50px;
+  font-weight: 600;
+  color: var(--tuai-balance-cream);
+  letter-spacing: -1px;
+  line-height: 1.08;
+  cursor: pointer;
+}
+
+.tuai-wallet-id-row {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  color: var(--tuai-wallet-id-text);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.tuai-wallet-id-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tuai-golden-actions-row {
+  width: 100%;
+  padding: 0 4px;
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tuai-golden-action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.tuai-golden-circle-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--tuai-gold-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(35, 26, 22, 0.14);
+}
+
+.tuai-golden-circle-btn:hover {
+  filter: brightness(1.04);
+}
+
+/* S-CURVED ASYMMETRIC FOLDER SHEET */
+.tuai-folder-sheet-container {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tuai-folder-svg-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tuai-folder-content-layer {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tuai-folder-tabs-row {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.tuai-folder-tab-left {
+  width: 46%;
+  height: 50px;
+  padding-left: 24px;
+  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tuai-text-dark);
+}
+
+.tuai-folder-tab-right {
+  width: 54%;
+  height: 50px;
+  padding-right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  color: #F3B89E;
+  font-weight: 500;
+}
+
+.tuai-folder-tab-right.active {
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.tuai-sheet-scroll-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 24px 12px;
+}
+
+.tuai-asset-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 15px 4px;
+  border-bottom: 1px solid #F5F1EC;
+  text-align: left;
+  border-radius: 12px;
+  transition: background-color 0.15s ease;
+}
+
+.tuai-asset-row:last-child {
+  border-bottom: none;
+}
+
+.tuai-asset-row:hover {
+  background-color: #FAF6F0;
+}
+
+.tuai-asset-icon-circle {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 14px;
+}
+
+.tuai-asset-info-left {
+  flex: 1;
+}
+
+.tuai-asset-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tuai-text-dark);
+}
+
+.tuai-asset-sub {
+  font-size: 12.5px;
+  color: var(--tuai-text-muted);
+  margin-top: 3px;
+}
+
+.tuai-asset-info-right {
+  text-align: right;
+}
+
+.tuai-asset-token {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--tuai-text-dark);
+}
+
+.tuai-tx-amount {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.tuai-tx-amount.positive {
+  color: var(--tuai-positive-green);
+}
+
+.tuai-tx-amount.negative {
+  color: var(--tuai-terracotta);
+}
+
+/* Bottom Navigation Bar */
+.tuai-bottom-nav {
+  height: 68px;
+  background: #FFFFFF;
+  border-top: 1px solid #F3EFEA;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 12px;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.tuai-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 11.5px;
+}
+
+/* SCREEN 3: WITHDRAW SCREEN */
+.tuai-withdraw-screen {
+  flex: 1;
+  background: var(--tuai-terracotta);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tuai-withdraw-topbar {
+  padding: 8px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.tuai-withdraw-top-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 22px;
+}
+
+.tuai-withdraw-top-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tuai-withdraw-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.tuai-withdraw-stack {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.tuai-exchange-peach-card {
+  margin: 0 16px;
+  height: 84px;
+  border-radius: 26px 26px 0 0;
+  background: var(--tuai-exchange-card-bg);
+  padding: 18px 22px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.tuai-exchange-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--tuai-exchange-text);
+}
+
+.tuai-exchange-dest-pill {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tuai-exchange-text);
+  background: rgba(255, 255, 255, 0.45);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.tuai-withdraw-white-sheet {
+  position: absolute;
+  top: 54px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #FFFFFF;
+  border-radius: 30px 30px 0 0;
+  box-shadow: 0 -6px 24px rgba(35, 26, 22, 0.1);
+  padding: 22px 24px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.tuai-balance-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #F4EFEA;
+}
+
+.tuai-balance-caption {
+  font-size: 13px;
+  color: #8E8680;
+}
+
+.tuai-balance-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--tuai-text-dark);
+  margin-top: 4px;
+}
+
+.tuai-plus-peach-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--tuai-plus-circle-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tuai-withdraw-amount-box {
+  text-align: center;
+  margin: 14px 0 10px;
+}
+
+.tuai-withdraw-amount-label {
+  font-size: 13.5px;
+  color: #7D746D;
+}
+
+.tuai-withdraw-amount-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--tuai-terracotta);
+  letter-spacing: -0.5px;
+  margin-top: 4px;
+}
+
+.tuai-keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  justify-items: center;
+  margin: 8px 0;
+}
+
+.tuai-keypad-btn {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: var(--tuai-keypad-circle-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--tuai-text-dark);
+}
+
+.tuai-keypad-btn:hover {
+  background: #EAD9C3;
+}
+
+/* Swipe to Withdraw Track */
+.tuai-swipe-track {
+  width: 100%;
+  height: 62px;
+  border-radius: 999px;
+  background: var(--tuai-terracotta);
+  padding: 6px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(206, 90, 49, 0.3);
+}
+
+.tuai-swipe-label {
+  width: 100%;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 500;
+  color: #FFFFFF;
+  pointer-events: none;
+}
+
+.tuai-swipe-thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tuai-terracotta);
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  touch-action: none;
+}
+
+/* Modal Sheet Overlay */
+.tuai-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 14, 11, 0.52);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 40;
+  animation: fadeIn 0.18s ease;
+}
+
+.tuai-modal-sheet {
+  width: 100%;
+  max-height: 82%;
+  background: var(--tuai-cream-bg);
+  border-radius: 28px 28px 0 0;
+  padding: 18px 24px 26px;
+  overflow-y: auto;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tuai-modal-handle {
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: #D7C8B6;
+  margin: 0 auto 16px;
+}
+
+/* Toast Banner */
+.tuai-toast-banner {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(35, 26, 22, 0.95);
+  color: #FFFFFF;
+  padding: 11px 22px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  z-index: 100;
+  white-space: nowrap;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,18 +23,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.components.TuaiModalOverlayHost
 import com.example.ui.screens.LoginScreen
 import com.example.ui.screens.WalletScreen
 import com.example.ui.screens.WithdrawScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.PlusJakartaSans
 import com.example.ui.theme.TuaiTextDark
+import com.example.viewmodel.TuaiActiveModal
 import com.example.viewmodel.TuaiScreen
 import com.example.viewmodel.TuaiUiState
 import com.example.viewmodel.TuaiViewModel
@@ -65,10 +68,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val clipboardManager = LocalClipboardManager.current
 
     LaunchedEffect(uiState.toastMessage) {
         if (uiState.toastMessage != null) {
-            delay(2200)
+            delay(2400)
             viewModel.clearMessage()
         }
     }
@@ -86,22 +90,40 @@ fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
                         onEmailChanged = viewModel::updateEmailOrPhone,
                         onPasswordChanged = viewModel::updatePassword,
                         onTogglePasswordVisibility = viewModel::togglePasswordVisibility,
-                        onLoginSuccess = { viewModel.navigateTo(TuaiScreen.WALLET) },
+                        onLoginSuccess = viewModel::submitAuth,
                         onForgotPasswordClick = {
-                            viewModel.showMessage("Tautan pemulihan kata sandi telah dikirim")
+                            viewModel.openModal(TuaiActiveModal.FORGOT_PASSWORD)
                         },
-                        onRegisterClick = { viewModel.navigateTo(TuaiScreen.WALLET) }
+                        onRegisterClick = viewModel::toggleRegisterMode,
+                        onNameChanged = viewModel::updateRegisterName,
+                        onConfirmPasswordChanged = viewModel::updateConfirmPassword,
+                        onGoogleLoginClick = { viewModel.loginWithSocial("Google") },
+                        onAppleLoginClick = { viewModel.loginWithSocial("Apple ID") },
+                        onBiometricLoginClick = {
+                            viewModel.openModal(TuaiActiveModal.BIOMETRIC_PROMPT)
+                        }
                     )
                 }
 
                 TuaiScreen.WALLET -> {
                     WalletScreen(
                         uiState = uiState,
-                        onBackToLogin = { viewModel.navigateTo(TuaiScreen.LOGIN) },
+                        onBackToLogin = viewModel::logout,
                         onNavigateToWithdraw = { viewModel.navigateTo(TuaiScreen.WITHDRAW) },
                         onSelectAssetTab = viewModel::selectAssetTab,
                         onSelectBottomNav = viewModel::selectBottomNav,
-                        onShowMessage = viewModel::showMessage
+                        onShowMessage = viewModel::showMessage,
+                        onOpenModal = viewModel::openModal,
+                        onAssetClick = viewModel::openAssetDetail,
+                        onTransactionClick = viewModel::openTransactionDetail,
+                        onSelectTxFilter = viewModel::selectTxFilter,
+                        onSelectChartTimeframe = viewModel::selectChartTimeframe,
+                        onContributeGoal = viewModel::contributeToSavingsGoal,
+                        onTogglePrivacy = viewModel::toggleBalancePrivacy,
+                        onToggleBiometric = viewModel::toggleBiometricSetting,
+                        onToggleNotifications = viewModel::toggleNotificationsSetting,
+                        onSyncFirebase = viewModel::syncFirebaseManual,
+                        onResetData = viewModel::resetDemoData
                     )
                 }
 
@@ -113,14 +135,25 @@ fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
                         onDigitClick = viewModel::onKeypadDigit,
                         onResetClick = viewModel::onKeypadReset,
                         onBackspaceClick = viewModel::onKeypadBackspace,
-                        onWithdrawComplete = {
-                            viewModel.showMessage("Withdraw $${uiState.withdrawAmount} berhasil diproses!")
-                            viewModel.navigateTo(TuaiScreen.WALLET)
-                        }
+                        onWithdrawComplete = viewModel::completeWithdraw,
+                        onExchangeCardClick = {
+                            viewModel.openModal(TuaiActiveModal.WITHDRAW_EXCHANGE_PICKER)
+                        },
+                        onPlusPresetClick = viewModel::cycleQuickWithdrawAmount
                     )
                 }
             }
         }
+
+        // Interactive Modal Bottom Sheet Overlay
+        TuaiModalOverlayHost(
+            uiState = uiState,
+            viewModel = viewModel,
+            onCopyText = { text, message ->
+                clipboardManager.setText(AnnotatedString(text))
+                viewModel.showMessage(message)
+            }
+        )
 
         // Subtle Floating Feedback Banner when an action is triggered
         uiState.toastMessage?.let { message ->
@@ -130,7 +163,7 @@ fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(top = 12.dp, start = 24.dp, end = 24.dp),
                 shape = RoundedCornerShape(50),
-                color = TuaiTextDark.copy(alpha = 0.92f),
+                color = TuaiTextDark.copy(alpha = 0.94f),
                 shadowElevation = 6.dp
             ) {
                 Text(

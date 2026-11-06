@@ -82,7 +82,12 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onForgotPasswordClick: () -> Unit,
     onRegisterClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNameChanged: (String) -> Unit = {},
+    onConfirmPasswordChanged: (String) -> Unit = {},
+    onGoogleLoginClick: () -> Unit = onLoginSuccess,
+    onAppleLoginClick: () -> Unit = onLoginSuccess,
+    onBiometricLoginClick: () -> Unit = onLoginSuccess
 ) {
     Box(
         modifier = modifier
@@ -137,9 +142,13 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Heading: "Masuk ke Akun"
+                // Heading: "Masuk ke Akun" / "Daftar Akun Baru"
                 Text(
-                    text = stringResource(R.string.login_title),
+                    text = if (uiState.isRegisterMode) {
+                        "Daftar Akun Baru"
+                    } else {
+                        stringResource(R.string.login_title)
+                    },
                     fontFamily = PlusJakartaSans,
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp,
@@ -149,7 +158,11 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = stringResource(R.string.login_subtitle),
+                    text = if (uiState.isRegisterMode) {
+                        "Buat akun Tuai & sinkronkan dompet ke Firebase"
+                    } else {
+                        stringResource(R.string.login_subtitle)
+                    },
                     fontFamily = PlusJakartaSans,
                     fontWeight = FontWeight.Normal,
                     fontSize = 13.5.sp,
@@ -157,6 +170,53 @@ fun LoginScreen(
                 )
 
                 Spacer(modifier = Modifier.height(22.dp))
+
+                if (uiState.isRegisterMode) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(TuaiInputBg)
+                            .padding(horizontal = 22.dp)
+                            .testTag("register_name_input"),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            MailOutlineIcon(tint = TuaiInputIcon, size = 20.dp)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (uiState.registerName.isEmpty()) {
+                                    Text(
+                                        text = "Nama Lengkap",
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 14.5.sp,
+                                        color = TuaiInputHint
+                                    )
+                                }
+                                BasicTextField(
+                                    value = uiState.registerName,
+                                    onValueChange = onNameChanged,
+                                    singleLine = true,
+                                    textStyle = TextStyle(
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.5.sp,
+                                        color = TuaiTextDark
+                                    ),
+                                    cursorBrush = SolidColor(TuaiTerracotta),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
                 // Input 1: Email atau Nomor HP
                 Box(
@@ -276,6 +336,57 @@ fun LoginScreen(
                     }
                 }
 
+                if (uiState.isRegisterMode) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(TuaiInputBg)
+                            .padding(horizontal = 22.dp)
+                            .testTag("confirm_password_input"),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            PadlockOutlineIcon(tint = TuaiInputIcon, size = 20.dp)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (uiState.confirmPassword.isEmpty()) {
+                                    Text(
+                                        text = "Konfirmasi Kata Sandi",
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 14.5.sp,
+                                        color = TuaiInputHint
+                                    )
+                                }
+                                BasicTextField(
+                                    value = uiState.confirmPassword,
+                                    onValueChange = onConfirmPasswordChanged,
+                                    singleLine = true,
+                                    visualTransformation = if (uiState.isPasswordVisible) {
+                                        VisualTransformation.None
+                                    } else {
+                                        PasswordVisualTransformation()
+                                    },
+                                    textStyle = TextStyle(
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.5.sp,
+                                        color = TuaiTextDark
+                                    ),
+                                    cursorBrush = SolidColor(TuaiTerracotta),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Lupa Kata Sandi?
@@ -299,7 +410,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Primary "Masuk" Pill Button with Right Arrow
+                // Primary "Masuk" / "Daftar Sekarang" Pill Button with Right Arrow
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -322,7 +433,11 @@ fun LoginScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = stringResource(R.string.login_button),
+                        text = if (uiState.isRegisterMode) {
+                            "Daftar Sekarang"
+                        } else {
+                            stringResource(R.string.login_button)
+                        },
                         fontFamily = PlusJakartaSans,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
@@ -374,28 +489,28 @@ fun LoginScreen(
                 ) {
                     SocialCircleButton(
                         testTag = "google_login_button",
-                        onClick = onLoginSuccess
+                        onClick = onGoogleLoginClick
                     ) {
                         GoogleMultiColorIcon(size = 24.dp)
                     }
 
                     SocialCircleButton(
                         testTag = "apple_login_button",
-                        onClick = onLoginSuccess
+                        onClick = onAppleLoginClick
                     ) {
                         AppleBlackIcon(size = 24.dp)
                     }
 
                     SocialCircleButton(
                         testTag = "biometric_login_button",
-                        onClick = onLoginSuccess
+                        onClick = onBiometricLoginClick
                     ) {
                         FingerprintTerracottaIcon(tint = TuaiTerracotta, size = 25.dp)
                     }
                 }
             }
 
-            // Footer: "Belum punya akun? Daftar"
+            // Footer: "Belum punya akun? Daftar" / "Sudah punya akun? Masuk"
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 18.dp, bottom = 16.dp)
@@ -410,7 +525,13 @@ fun LoginScreen(
                                 color = Color(0xFF3B322C)
                             )
                         ) {
-                            append(stringResource(R.string.no_account_prefix))
+                            append(
+                                if (uiState.isRegisterMode) {
+                                    "Sudah punya akun? "
+                                } else {
+                                    stringResource(R.string.no_account_prefix)
+                                }
+                            )
                         }
                         withStyle(
                             style = SpanStyle(
@@ -420,7 +541,13 @@ fun LoginScreen(
                                 color = TuaiTerracotta
                             )
                         ) {
-                            append(stringResource(R.string.register_action))
+                            append(
+                                if (uiState.isRegisterMode) {
+                                    "Masuk"
+                                } else {
+                                    stringResource(R.string.register_action)
+                                }
+                            )
                         }
                     },
                     modifier = Modifier

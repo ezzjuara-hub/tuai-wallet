@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Top Golden Grain Leaf -->
+    <path
+        android:fillColor="#FFDCA349"
+        android:pathData="M54,24 C60,31 60,41 54,48 C48,41 48,31 54,24 Z" />
+    <!-- Upper Left Terracotta Grain Leaf -->
+    <path
+        android:fillColor="#FFCC5A30"
+        android:pathData="M51,53 C39,50 33,41 35,31 C44,33 50,42 51,53 Z" />
+    <!-- Upper Right Terracotta Grain Leaf -->
+    <path
+        android:fillColor="#FFCC5A30"
+        android:pathData="M57,53 C69,50 75,41 73,31 C64,33 58,42 57,53 Z" />
+    <!-- Lower Left Leaf -->
+    <path
+        android:fillColor="#FFC65229"
+        android:pathData="M52,74 C36,69 29,57 31,45 C43,48 51,59 52,74 Z" />
+    <!-- Lower Right Leaf -->
+    <path
+        android:fillColor="#FFC65229"
+        android:pathData="M56,74 C72,69 79,57 77,45 C65,48 57,59 56,74 Z" />
+    <!-- Center Stem -->
+    <path
+        android:fillColor="#FFB94A22"
+        android:pathData="M52.5,52 L55.5,52 L55.5,84 L52.5,84 Z" />
+</vector>

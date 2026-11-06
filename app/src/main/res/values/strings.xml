@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Tuai</string>
+    <string name="brand_tagline">Kelola &amp; Tuai Hasil Finansialmu</string>
+    <string name="login_title">Masuk ke Akun</string>
+    <string name="login_subtitle">Silakan masuk untuk melanjutkan</string>
+    <string name="email_or_phone_hint">Email atau Nomor HP</string>
+    <string name="password_hint">Kata Sandi</string>
+    <string name="forgot_password">Lupa Kata Sandi?</string>
+    <string name="login_button">Masuk</string>
+    <string name="or_login_with">Atau masuk dengan</string>
+    <string name="no_account_prefix">Belum punya akun? </string>
+    <string name="register_action">Daftar</string>
+    <string name="wallet_title">Wallet</string>
+    <string name="my_assets_tab">My Assets</string>
+    <string name="my_transaction_tab">My Transaction</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_wallet">Wallet</string>
+    <string name="nav_chart">Chart</string>
+    <string name="nav_settings">Settings</string>
+    <string name="withdraw_money_title">Withdraw Money</string>
+    <string name="exchange_label">Exchange</string>
+    <string name="current_wallet_balance">Current Wallet Balance</string>
+    <string name="withdraw_amount_label">Withdraw Amount</string>
+    <string name="swipe_to_withdraw">Swipe to Withdraw</string>
+</resources>

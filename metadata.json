@@ -1,6 +1,6 @@
 {
   "name": "Tuai",
-  "description": "Kelola & Tuai Hasil Finansialmu - Aplikasi dompet digital dan manajemen aset finansial.",
+  "description": "Konektor Dompet Digital & Bank (GoPay, DANA, Mandiri, BRImo, BCA) untuk memantau total saldo dan mengkondisikan keuangan.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,6 +1,17 @@
 export type TuaiScreenType = 'LOGIN' | 'WALLET' | 'WITHDRAW';
 
-export type AssetIconType = 'ETHEREUM' | 'BINANCE' | 'TETHER';
+export type AssetIconType =
+  | 'BCA'
+  | 'MANDIRI'
+  | 'BRIMO'
+  | 'GOPAY'
+  | 'DANA'
+  | 'OVO'
+  | 'SHOPEEPAY'
+  | 'SEABANK'
+  | 'ETHEREUM'
+  | 'BINANCE'
+  | 'TETHER';
 
 export type ActiveModalType =
   | 'NONE'
@@ -14,6 +25,7 @@ export type ActiveModalType =
   | 'TRANSACTION_DETAIL'
   | 'WITHDRAW_EXCHANGE_PICKER'
   | 'PROFILE_ACCOUNT'
+  | 'PLUGIN_MANAGER'
   | 'FIREBASE_CONFIG';
 
 export interface CryptoAssetItem {
@@ -27,6 +39,10 @@ export interface CryptoAssetItem {
   unitPriceUsd: number;
   change24h: string;
   iconType: AssetIconType;
+  walletCategory: 'BANK' | 'E-WALLET';
+  accountNumber: string;
+  allocationRole: string;
+  isConnected: boolean;
 }
 
 export interface WalletTransactionItem {
@@ -38,7 +54,7 @@ export interface WalletTransactionItem {
   isPositive: boolean;
   iconType: AssetIconType;
   category: 'WITHDRAW' | 'RECEIVE' | 'SWAP' | 'TOPUP';
-  status: 'Berhasil' | 'Diproses';
+  status: 'Berhasil' | 'Tersinkron' | 'Diproses';
   referenceNote: string;
 }
 
@@ -56,6 +72,7 @@ export interface SavingsGoalItem {
   currentUsd: number;
   targetUsd: number;
   deadline: string;
+  linkedWalletsLabel?: string;
 }
 
 export interface BankDestinationItem {
@@ -81,6 +98,11 @@ export interface TuaiWalletState {
   userEmail: string;
   walletBalanceNumeric: number;
   walletBalance: string;
+  bankBalanceNumeric: number;
+  ewalletBalanceNumeric: number;
+  connectedPluginCount: number;
+  financialHealthStatus: string;
+  financialConditionAdvice: string;
   isBalanceHidden: boolean;
   biometricEnabled: boolean;
   notificationsEnabled: boolean;

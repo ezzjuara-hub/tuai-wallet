@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -77,10 +79,12 @@ fun WithdrawScreen(
     onWithdrawComplete: () -> Unit,
     modifier: Modifier = Modifier,
     onExchangeCardClick: () -> Unit = {},
-    onPlusPresetClick: () -> Unit = onResetClick
+    onPlusPresetClick: () -> Unit = onResetClick,
+    onSelectWithdrawDestination: (String) -> Unit = {}
 ) {
     BackHandler(onBack = onBackToWallet)
-    val activeAsset = uiState.assets.find { it.id == uiState.selectedWithdrawAssetId }
+    val activeAsset = uiState.connectedAssets.find { it.id == uiState.selectedWithdrawAssetId }
+        ?: uiState.connectedAssets.firstOrNull()
         ?: uiState.assets.first()
 
     Box(
@@ -97,7 +101,7 @@ fun WithdrawScreen(
         ) {
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Top App Bar: Back (<) | "Withdraw Money" | Star (☆)
+            // Top App Bar: Back (<) | "Catat Keluar / Transfer" | Star (☆)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -152,13 +156,13 @@ fun WithdrawScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Stacked Cards Area: "Exchange" Peach Card + Main White Rounded Sheet
+            // Stacked Cards Area: "Sumber Dana" Peach Card + Main White Rounded Sheet
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                // Back "Exchange" Card (Peach #EAC2B0) - Interactive Asset/Destination Picker
+                // Back "Sumber Dana" Card (Peach #EAC2B0) - Interactive Wallet/Bank Picker
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -180,7 +184,7 @@ fun WithdrawScreen(
                         color = TuaiExchangeText
                     )
                     Text(
-                        text = "${activeAsset.symbol} • ${uiState.withdrawDestination.substringBefore(" (")} ▾",
+                        text = "${activeAsset.name} (${activeAsset.tokenAmount}) ▾",
                         fontFamily = PlusJakartaSans,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.5.sp,
@@ -188,7 +192,7 @@ fun WithdrawScreen(
                     )
                 }
 
-                // Foreground Main White Sheet overlapping the Exchange card
+                // Foreground Main White Sheet overlapping the Sumber Dana card
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
@@ -204,9 +208,9 @@ fun WithdrawScreen(
                             .padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Spacer(modifier = Modifier.height(22.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
-                        // Current Wallet Balance Row + Soft Peach '+' Button
+                        // Current Wallet Balance Row + Soft Peach '+' Preset Button
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -214,10 +218,10 @@ fun WithdrawScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = stringResource(R.string.current_wallet_balance),
+                                    text = "${stringResource(R.string.current_wallet_balance)} (${activeAsset.name}: ${activeAsset.tokenAmount})",
                                     fontFamily = PlusJakartaSans,
                                     fontWeight = FontWeight.Normal,
-                                    fontSize = 13.sp,
+                                    fontSize = 12.sp,
                                     color = Color(0xFF8E8680)
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -225,7 +229,7 @@ fun WithdrawScreen(
                                     text = uiState.walletBalance,
                                     fontFamily = PlusJakartaSans,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 28.sp,
+                                    fontSize = 26.sp,
                                     color = TuaiTextDark
                                 )
                             }
@@ -246,42 +250,78 @@ fun WithdrawScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         HorizontalDivider(
                             thickness = 1.dp,
                             color = Color(0xFFF4EFEA)
                         )
 
-                        Spacer(modifier = Modifier.height(22.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // "Withdraw Amount" & "$19,29.00"
+                        // "Nominal Pengeluaran / Transfer" & "Rp 150.000"
                         Text(
                             text = stringResource(R.string.withdraw_amount_label),
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.Normal,
-                            fontSize = 13.5.sp,
+                            fontSize = 13.sp,
                             color = Color(0xFF7D746D)
                         )
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = "$${uiState.withdrawAmount}",
+                            text = "Rp ${uiState.withdrawAmount}",
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 36.sp,
+                            fontSize = 34.sp,
                             color = TuaiTerracotta,
                             letterSpacing = (-0.5).sp,
                             modifier = Modifier.testTag("withdraw_amount_display")
                         )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Quick Expense / Transfer Purpose Chips
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "QRIS & Makan Harian",
+                                "Transfer Antar Bank",
+                                "Tagihan & Listrik",
+                                "Belanja Kebutuhan"
+                            ).forEach { purpose ->
+                                val selected = uiState.withdrawDestination == purpose
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(
+                                            if (selected) TuaiTerracotta else Color(0xFFFAF3E8)
+                                        )
+                                        .clickable { onSelectWithdrawDestination(purpose) }
+                                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text = purpose,
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.sp,
+                                        color = if (selected) Color.White else TuaiTextDark
+                                    )
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.weight(1f))
 
                         // 4x3 Circular Keypad (1 2 3 4 / 5 6 7 8 / ↻ 9 0 ⌫)
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             // Row 1: 1, 2, 3, 4
                             Row(
@@ -341,14 +381,14 @@ fun WithdrawScreen(
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Bottom "Swipe to Withdraw" Slider Button
+                        // Bottom "Geser untuk Konfirmasi" Slider Button
                         SwipeToWithdrawButton(
                             onSwipeCompleted = onWithdrawComplete,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 18.dp)
+                                .padding(bottom = 16.dp)
                         )
                     }
                 }
@@ -364,7 +404,7 @@ private fun KeypadDigitButton(
 ) {
     Box(
         modifier = Modifier
-            .size(66.dp)
+            .size(64.dp)
             .clip(CircleShape)
             .background(TuaiKeypadCircleBg)
             .clickable(onClick = onClick)
@@ -389,7 +429,7 @@ private fun KeypadIconButton(
 ) {
     Box(
         modifier = Modifier
-            .size(66.dp)
+            .size(64.dp)
             .clip(CircleShape)
             .background(TuaiKeypadCircleBg)
             .clickable(onClick = onClick)
@@ -426,7 +466,7 @@ private fun SwipeToWithdrawButton(
             label = "swipe_offset"
         )
 
-        // Centered Label: "Swipe to Withdraw"
+        // Centered Label: "Geser untuk Konfirmasi"
         Text(
             text = stringResource(R.string.swipe_to_withdraw),
             fontFamily = PlusJakartaSans,

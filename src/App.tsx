@@ -25,7 +25,10 @@ import {
 } from './components/TuaiSvgIcons';
 import {
   DEFAULT_INITIAL_WALLET_STATE,
-  firebaseService
+  firebaseService,
+  formatRupiah,
+  formatShortRupiah,
+  recalculateWalletState
 } from './services/firebaseService';
 import type {
   ActiveModalType,
@@ -36,56 +39,98 @@ import type {
   WalletTransactionItem
 } from './types/tuai';
 
-function parseWithdrawAmount(raw: string): number {
-  if (raw === '19,29.00') return 1929.0;
-  const cleaned = raw.replace(/,/g, '').replace(/\$/g, '').trim();
-  const parsed = Number.parseFloat(cleaned);
+function parseRupiahDigits(raw: string): number {
+  const digits = raw.replace(/[^0-9]/g, '');
+  const parsed = Number.parseFloat(digits);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatHeadlineBalance(amount: number): string {
-  const isWhole = Math.abs(amount % 1) < 0.001;
-  return (
-    '$' +
-    amount.toLocaleString('en-US', {
-      minimumFractionDigits: isWhole ? 0 : 2,
-      maximumFractionDigits: isWhole ? 0 : 2
-    })
-  );
-}
-
-function formatCurrencyWithCents(amount: number): string {
-  return amount.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
 const AssetBadgeIcon: React.FC<{ iconType: AssetIconType }> = ({ iconType }) => {
-  const bg =
-    iconType === 'ETHEREUM'
-      ? '#D05B33'
-      : iconType === 'BINANCE'
-        ? '#F0B90B'
-        : '#6E8559';
+  const colorMap: Record<AssetIconType, { bg: string; label: string; sub?: string }> = {
+    BCA: { bg: '#005BAA', label: 'BCA', sub: 'myBCA' },
+    MANDIRI: { bg: '#003D79', label: 'LIVIN', sub: 'Mandiri' },
+    BRIMO: { bg: '#00529C', label: 'BRI', sub: 'BRImo' },
+    GOPAY: { bg: '#00AED6', label: 'GO', sub: 'GoPay' },
+    DANA: { bg: '#118EEA', label: 'DANA' },
+    OVO: { bg: '#4C3494', label: 'OVO' },
+    SHOPEEPAY: { bg: '#EE4D2D', label: 'SPAY' },
+    SEABANK: { bg: '#FF6600', label: 'SEA', sub: 'Bank' },
+    ETHEREUM: { bg: '#D05B33', label: 'ETH' },
+    BINANCE: { bg: '#F0B90B', label: 'BNB' },
+    TETHER: { bg: '#6E8559', label: 'USDT' }
+  };
+
+  const spec = colorMap[iconType] || colorMap.BCA;
+
+  if (iconType === 'ETHEREUM' || iconType === 'BINANCE' || iconType === 'TETHER') {
+    return (
+      <div className="tuai-asset-icon-circle" style={{ backgroundColor: spec.bg }}>
+        {iconType === 'ETHEREUM' && <EthereumCrystalIcon size={24} />}
+        {iconType === 'BINANCE' && <BinanceDiamondIcon size={24} />}
+        {iconType === 'TETHER' && <TetherSymbolIcon size={24} />}
+      </div>
+    );
+  }
 
   return (
-    <div className="tuai-asset-icon-circle" style={{ backgroundColor: bg }}>
-      {iconType === 'ETHEREUM' && <EthereumCrystalIcon size={24} />}
-      {iconType === 'BINANCE' && <BinanceDiamondIcon size={24} />}
-      {iconType === 'TETHER' && <TetherSymbolIcon size={24} />}
+    <div
+      className="tuai-asset-icon-circle"
+      style={{
+        backgroundColor: spec.bg,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#FFFFFF',
+        fontWeight: 800,
+        lineHeight: 1.05,
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
+      {iconType === 'MANDIRI' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 5,
+            right: 6,
+            width: 12,
+            height: 4,
+            borderRadius: 99,
+            background: '#FFB700'
+          }}
+        />
+      )}
+      {iconType === 'BRIMO' && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 4,
+            right: 5,
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: '#F37021'
+          }}
+        />
+      )}
+      <span style={{ fontSize: spec.label.length > 4 ? 10 : 11.5, letterSpacing: '-0.3px' }}>
+        {spec.label}
+      </span>
+      {spec.sub && (
+        <span style={{ fontSize: 7.5, fontWeight: 600, opacity: 0.9 }}>{spec.sub}</span>
+      )}
     </div>
   );
 };
 
 export function App() {
-  // Wallet state persisted in Firebase Cloud Firestore + localStorage
   const [wallet, setWallet] = useState<TuaiWalletState>(() =>
     firebaseService.loadLocalWalletState()
   );
 
   // Navigation & UI state
-  const [currentScreen, setCurrentScreen] = useState<TuaiScreenType>('LOGIN');
+  const [currentScreen, setCurrentScreen] = useState<TuaiScreenType>('WALLET');
   const [showcaseAllScreens, setShowcaseAllScreens] = useState<boolean>(false);
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [registerName, setRegisterName] = useState<string>('');
@@ -95,27 +140,39 @@ export function App() {
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
 
   // Wallet & Tab state
-  const [selectedAssetTab, setSelectedAssetTab] = useState<number>(0); // 0 = My Assets, 1 = My Transaction
-  const [selectedBottomNav, setSelectedBottomNav] = useState<number>(1); // 0 = Home, 1 = Wallet, 2 = Chart, 3 = Settings
+  const [selectedAssetTab, setSelectedAssetTab] = useState<number>(0); // 0 = Dompet & Bank, 1 = Mutasi Gabungan
+  const [selectedWalletCategory, setSelectedWalletCategory] = useState<'ALL' | 'BANK' | 'E-WALLET'>(
+    'ALL'
+  );
+  const [selectedBottomNav, setSelectedBottomNav] = useState<number>(1); // 0 = Kondisi, 1 = Dompet, 2 = Analitik, 3 = Plugin
   const [selectedTxFilter, setSelectedTxFilter] = useState<'ALL' | 'IN' | 'OUT' | 'SWAP'>('ALL');
   const [chartTimeframe, setChartTimeframe] = useState<'24H' | '1W' | '1M' | '1Y'>('1M');
 
-  // Withdraw keypad state
-  const [withdrawAmount, setWithdrawAmount] = useState<string>('19,29.00');
+  // Withdraw / Expense keypad state
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('150.000');
 
   // Modals & Interactive inputs
   const [activeModal, setActiveModal] = useState<ActiveModalType>('NONE');
-  const [selectedAssetModal, setSelectedAssetModal] = useState<CryptoAssetItem | null>(null);
+  const [selectedAssetIdModal, setSelectedAssetIdModal] = useState<string>('bca');
   const [selectedTxModal, setSelectedTxModal] = useState<WalletTransactionItem | null>(null);
-  const [swapFromId, setSwapFromId] = useState<string>('eth');
-  const [swapToId, setSwapToId] = useState<string>('usdt');
-  const [swapAmount, setSwapAmount] = useState<string>('500');
-  const [topUpAmount, setTopUpAmount] = useState<string>('1000');
-  const [topUpMethod, setTopUpMethod] = useState<string>('BCA Virtual Account');
-  const [topUpAssetId, setTopUpAssetId] = useState<string>('eth');
+  const [manualBalanceInput, setManualBalanceInput] = useState<string>('14500000');
+  const [manualAccountInput, setManualAccountInput] = useState<string>('8820-1928-31');
+
+  const [swapFromId, setSwapFromId] = useState<string>('bca');
+  const [swapToId, setSwapToId] = useState<string>('gopay');
+  const [swapAmount, setSwapAmount] = useState<string>('500000');
+
+  const [topUpAmount, setTopUpAmount] = useState<string>('500000');
+  const [topUpMethod, setTopUpMethod] = useState<string>('Transfer dari BCA (myBCA)');
+  const [topUpAssetId, setTopUpAssetId] = useState<string>('gopay');
   const [recoveryEmail, setRecoveryEmail] = useState<string>('');
 
-  // Custom Firebase Config modal inputs
+  // Custom Plugin Form
+  const [customPluginName, setCustomPluginName] = useState<string>('');
+  const [customPluginCategory, setCustomPluginCategory] = useState<'BANK' | 'E-WALLET'>('E-WALLET');
+  const [customPluginAccount, setCustomPluginAccount] = useState<string>('');
+  const [customPluginBalance, setCustomPluginBalance] = useState<string>('500000');
+
   const existingCfg = firebaseService.getEnvOrStoredConfig();
   const [fbApiKey, setFbApiKey] = useState<string>(existingCfg?.apiKey || '');
   const [fbProjectId, setFbProjectId] = useState<string>(existingCfg?.projectId || '');
@@ -124,7 +181,6 @@ export function App() {
     firebaseService.getConnectionStatusLabel()
   );
 
-  // Toast feedback message
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -138,7 +194,6 @@ export function App() {
     }, 2600);
   };
 
-  // Subscribe to Firebase Firestore & multi-tab updates
   useEffect(() => {
     firebaseService.fetchCloudWalletState(wallet.walletId).then((cloudState) => {
       if (cloudState) {
@@ -154,7 +209,7 @@ export function App() {
 
   const persistAndSetWallet = (updater: (prev: TuaiWalletState) => TuaiWalletState) => {
     setWallet((prev) => {
-      const next = updater(prev);
+      const next = recalculateWalletState(updater(prev));
       void firebaseService.saveWalletState(next);
       return next;
     });
@@ -167,6 +222,110 @@ export function App() {
       // fallback
     }
     showToast(label);
+  };
+
+  const connectedAssets = wallet.assets.filter((a) => a.isConnected);
+  const displayedAssets = connectedAssets.filter((a) => {
+    if (selectedWalletCategory === 'BANK') return a.walletCategory === 'BANK';
+    if (selectedWalletCategory === 'E-WALLET') return a.walletCategory === 'E-WALLET';
+    return true;
+  });
+
+  const selectedAssetModal =
+    wallet.assets.find((a) => a.id === selectedAssetIdModal) || wallet.assets[0];
+
+  const openAssetDetailModal = (asset: CryptoAssetItem) => {
+    setSelectedAssetIdModal(asset.id);
+    setManualBalanceInput(String(Math.round(asset.tokenNumeric)));
+    setManualAccountInput(asset.accountNumber);
+    setActiveModal('ASSET_DETAIL');
+  };
+
+  const handleTogglePlugin = (assetId: string) => {
+    const target = wallet.assets.find((a) => a.id === assetId);
+    if (!target) return;
+    const nextConnected = !target.isConnected;
+    persistAndSetWallet((prev) => ({
+      ...prev,
+      assets: prev.assets.map((a) => (a.id === assetId ? { ...a, isConnected: nextConnected } : a))
+    }));
+    showToast(
+      nextConnected
+        ? `Plugin ${target.name} dihubungkan (${formatRupiah(target.tokenNumeric)})`
+        : `Koneksi plugin ${target.name} diputus sementara`
+    );
+  };
+
+  const handleSaveManualWallet = () => {
+    const newBal = parseRupiahDigits(manualBalanceInput);
+    const target = wallet.assets.find((a) => a.id === selectedAssetIdModal);
+    if (!target) return;
+    const newAcc = manualAccountInput.trim() || target.accountNumber;
+    const diff = newBal - target.tokenNumeric;
+
+    const newTx: WalletTransactionItem | null =
+      Math.abs(diff) >= 1
+        ? {
+            id: `tx_${Date.now()}`,
+            title: `Penyesuaian Saldo ${target.name}`,
+            date: 'Baru saja',
+            amount: `${diff >= 0 ? '+' : '-'}${formatRupiah(Math.abs(diff))}`,
+            numericUsd: Math.abs(diff),
+            isPositive: diff >= 0,
+            iconType: target.iconType,
+            category: diff >= 0 ? 'RECEIVE' : 'WITHDRAW',
+            status: 'Tersinkron',
+            referenceNote: `Update Saldo Plugin ${target.name} → ${formatRupiah(newBal)}`
+          }
+        : null;
+
+    persistAndSetWallet((prev) => ({
+      ...prev,
+      assets: prev.assets.map((a) =>
+        a.id === target.id
+          ? { ...a, tokenNumeric: newBal, accountNumber: newAcc, isConnected: true }
+          : a
+      ),
+      transactions: newTx ? [newTx, ...prev.transactions] : prev.transactions
+    }));
+    setActiveModal('NONE');
+    showToast(`Saldo ${target.name} diperbarui menjadi ${formatRupiah(newBal)}!`);
+  };
+
+  const handleAddNewCustomPlugin = () => {
+    const cleanName = customPluginName.trim();
+    if (!cleanName) {
+      showToast('Masukkan nama Bank atau E-Wallet (contoh: BNI, BSI, LinkAja, Bank Jago)');
+      return;
+    }
+    const bal = parseRupiahDigits(customPluginBalance);
+    const acc = customPluginAccount.trim() || '0812-9988-7766';
+    const newPlugin: CryptoAssetItem = {
+      id: `plugin_${Date.now()}`,
+      symbol: cleanName.slice(0, 6).toUpperCase(),
+      name: cleanName,
+      percentageAndValue: '',
+      tokenAmount: formatRupiah(bal),
+      totalUsdValue: `${customPluginCategory === 'BANK' ? 'Bank' : 'E-Wallet'} • ${acc}`,
+      tokenNumeric: bal,
+      unitPriceUsd: 1,
+      change24h: 'Terhubung',
+      iconType: customPluginCategory === 'BANK' ? 'SEABANK' : 'GOPAY',
+      walletCategory: customPluginCategory,
+      accountNumber: acc,
+      allocationRole:
+        customPluginCategory === 'BANK' ? 'Tabungan & Cadangan' : 'Operasional & QRIS',
+      isConnected: true
+    };
+
+    persistAndSetWallet((prev) => ({
+      ...prev,
+      assets: [...prev.assets, newPlugin]
+    }));
+    setCustomPluginName('');
+    setCustomPluginAccount('');
+    setCustomPluginBalance('500000');
+    showToast(`Plugin ${cleanName} (${formatRupiah(bal)}) berhasil dihubungkan!`);
   };
 
   // Auth Handlers
@@ -191,10 +350,6 @@ export function App() {
       setSelectedBottomNav(1);
       showToast(res.message);
     } else {
-      if (password && password.length < 4) {
-        showToast('Kata sandi minimal 4 karakter');
-        return;
-      }
       const res = await firebaseService.login(emailOrPhone, password);
       persistAndSetWallet((prev) => ({
         ...prev,
@@ -203,9 +358,7 @@ export function App() {
       }));
       setCurrentScreen('WALLET');
       setSelectedBottomNav(1);
-      if (emailOrPhone.trim()) {
-        showToast(res.message);
-      }
+      showToast(res.message);
     }
   };
 
@@ -233,81 +386,84 @@ export function App() {
     showToast(msg);
   };
 
-  // Keypad & Withdraw Handlers
+  // Keypad & Expense Handlers
   const handleKeypadDigit = (digit: string) => {
     setWithdrawAmount((prev) => {
-      if (prev === '0.00' || prev === '0' || prev === '19,29.00') {
-        return digit;
-      }
-      if (prev.length < 10) {
-        return prev + digit;
-      }
-      return prev;
+      const clean = prev.replace(/[^0-9]/g, '');
+      const nextRaw = clean === '0' || prev === '150.000' ? digit : (clean + digit).slice(0, 10);
+      const num = Number.parseInt(nextRaw || '0', 10);
+      return num.toLocaleString('id-ID');
     });
   };
 
   const handleKeypadReset = () => {
-    setWithdrawAmount('19,29.00');
+    setWithdrawAmount('150.000');
   };
 
   const handleKeypadBackspace = () => {
     setWithdrawAmount((prev) => {
-      if (prev.length <= 1 || prev === '19,29.00') {
-        return '0';
-      }
-      return prev.slice(0, -1);
+      const clean = prev.replace(/[^0-9]/g, '');
+      if (clean.length <= 1) return '0';
+      const nextRaw = clean.slice(0, -1);
+      return Number.parseInt(nextRaw, 10).toLocaleString('id-ID');
     });
   };
 
+  const activeWithdrawAsset =
+    connectedAssets.find((a) => a.id === wallet.selectedWithdrawAssetId) ||
+    connectedAssets[0] ||
+    wallet.assets[0];
+
   const handleCyclePresetWithdraw = () => {
-    const maxFormatted = Math.floor(wallet.walletBalanceNumeric).toLocaleString('en-US');
-    const presets = ['100.00', '500.00', '1,000.00', `${maxFormatted}.00`];
+    const maxVal = Math.round(activeWithdrawAsset?.tokenNumeric || 500_000).toLocaleString(
+      'id-ID'
+    );
+    const presets = ['50.000', '150.000', '500.000', '1.000.000', maxVal];
     const idx = presets.indexOf(withdrawAmount);
     const next = presets[(idx + 1) % presets.length];
     setWithdrawAmount(next);
-    showToast(`Nominal cepat dipilih: $${next}`);
+    showToast(`Nominal cepat dipilih: Rp ${next}`);
   };
 
   const handleWithdrawComplete = () => {
-    const numericAmount = parseWithdrawAmount(withdrawAmount);
+    const numericAmount = parseRupiahDigits(withdrawAmount);
     if (numericAmount <= 0) {
-      showToast('Masukkan nominal penarikan lebih dari $0');
+      showToast('Masukkan nominal pengeluaran lebih dari Rp 0');
       return;
     }
-    if (numericAmount > wallet.walletBalanceNumeric) {
-      showToast(`Saldo tidak mencukupi (Maksimal ${wallet.walletBalance})`);
+    if (numericAmount > activeWithdrawAsset.tokenNumeric) {
+      showToast(
+        `Saldo ${activeWithdrawAsset.name} tidak mencukupi (Tersedia ${activeWithdrawAsset.tokenAmount})`
+      );
       return;
     }
-
-    const activeAsset =
-      wallet.assets.find((a) => a.id === wallet.selectedWithdrawAssetId) || wallet.assets[0];
-    const newBalanceNum = Math.max(0, wallet.walletBalanceNumeric - numericAmount);
-    const formattedBalance = formatHeadlineBalance(newBalanceNum);
-    const formattedWithdraw = formatCurrencyWithCents(numericAmount);
 
     const newTx: WalletTransactionItem = {
       id: `tx_${Date.now()}`,
-      title: `Withdraw ${activeAsset.name}`,
-      date: 'Just now',
-      amount: `-$${formattedWithdraw}`,
+      title: `Keluar dari ${activeWithdrawAsset.name}`,
+      date: 'Baru saja',
+      amount: `-${formatRupiah(numericAmount)}`,
       numericUsd: numericAmount,
       isPositive: false,
-      iconType: activeAsset.iconType,
+      iconType: activeWithdrawAsset.iconType,
       category: 'WITHDRAW',
       status: 'Berhasil',
-      referenceNote: `Tujuan: ${wallet.withdrawDestination}`
+      referenceNote: `${wallet.withdrawDestination} • Sumber: ${activeWithdrawAsset.name}`
     };
 
     persistAndSetWallet((prev) => ({
       ...prev,
-      walletBalanceNumeric: newBalanceNum,
-      walletBalance: formattedBalance,
+      assets: prev.assets.map((a) =>
+        a.id === activeWithdrawAsset.id
+          ? { ...a, tokenNumeric: Math.max(0, a.tokenNumeric - numericAmount) }
+          : a
+      ),
       transactions: [newTx, ...prev.transactions],
       notifications: [
         {
           id: `notif_${Date.now()}`,
-          title: 'Penarikan Dana Berhasil',
-          message: `Withdraw $${formattedWithdraw} (${activeAsset.symbol}) ke ${prev.withdrawDestination} berhasil diproses.`,
+          title: `Pengeluaran ${activeWithdrawAsset.name} Tercatat`,
+          message: `${formatRupiah(numericAmount)} keluar dari ${activeWithdrawAsset.name} untuk ${prev.withdrawDestination}.`,
           time: 'Baru saja',
           isRead: false
         },
@@ -315,47 +471,48 @@ export function App() {
       ]
     }));
 
-    showToast(`Withdraw $${withdrawAmount} berhasil diproses!`);
-    setWithdrawAmount('19,29.00');
+    showToast(
+      `Pengeluaran ${formatRupiah(numericAmount)} dari ${activeWithdrawAsset.name} tercatat!`
+    );
+    setWithdrawAmount('150.000');
     setCurrentScreen('WALLET');
     setSelectedBottomNav(1);
   };
 
-  // Top Up, Receive & Swap Handlers
   const handleTopUpSubmit = () => {
-    const amount = Number.parseFloat(topUpAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showToast('Masukkan nominal Top Up yang valid');
+    const amount = parseRupiahDigits(topUpAmount);
+    if (amount <= 0) {
+      showToast('Masukkan nominal isi saldo yang valid');
       return;
     }
     const targetAsset = wallet.assets.find((a) => a.id === topUpAssetId) || wallet.assets[0];
-    const newBalanceNum = wallet.walletBalanceNumeric + amount;
-    const formattedBalance = formatHeadlineBalance(newBalanceNum);
-    const formattedAmount = formatCurrencyWithCents(amount);
 
     const newTx: WalletTransactionItem = {
       id: `tx_${Date.now()}`,
-      title: `Top Up ${targetAsset.name}`,
-      date: 'Just now',
-      amount: `+$${formattedAmount}`,
+      title: `Saldo Masuk ${targetAsset.name}`,
+      date: 'Baru saja',
+      amount: `+${formatRupiah(amount)}`,
       numericUsd: amount,
       isPositive: true,
       iconType: targetAsset.iconType,
       category: 'TOPUP',
       status: 'Berhasil',
-      referenceNote: `Metode: ${topUpMethod}`
+      referenceNote: `Sumber: ${topUpMethod}`
     };
 
     persistAndSetWallet((prev) => ({
       ...prev,
-      walletBalanceNumeric: newBalanceNum,
-      walletBalance: formattedBalance,
+      assets: prev.assets.map((a) =>
+        a.id === targetAsset.id
+          ? { ...a, tokenNumeric: a.tokenNumeric + amount, isConnected: true }
+          : a
+      ),
       transactions: [newTx, ...prev.transactions],
       notifications: [
         {
           id: `notif_${Date.now()}`,
-          title: 'Top Up Saldo Berhasil',
-          message: `Saldo +$${formattedAmount} via ${topUpMethod} telah masuk ke dompet Anda.`,
+          title: `Saldo ${targetAsset.name} Bertambah`,
+          message: `+${formatRupiah(amount)} berhasil masuk ke ${targetAsset.name} (${topUpMethod}).`,
           time: 'Baru saja',
           isRead: false
         },
@@ -364,90 +521,86 @@ export function App() {
     }));
 
     setActiveModal('NONE');
-    showToast(`Top Up +$${formattedAmount} berhasil ditambahkan!`);
+    showToast(`+${formatRupiah(amount)} berhasil ditambahkan ke ${targetAsset.name}!`);
   };
 
   const handleSimulateReceive = () => {
-    const amount = 500;
-    const newBalanceNum = wallet.walletBalanceNumeric + amount;
-    const formattedBalance = formatHeadlineBalance(newBalanceNum);
-    const formattedAmount = formatCurrencyWithCents(amount);
+    const amount = 500_000;
+    const bca = wallet.assets.find((a) => a.id === 'bca') || wallet.assets[0];
 
     const newTx: WalletTransactionItem = {
       id: `tx_${Date.now()}`,
-      title: 'Received Ethereum',
-      date: 'Just now',
-      amount: `+$${formattedAmount}`,
+      title: `Transfer Masuk ke ${bca.name}`,
+      date: 'Baru saja',
+      amount: `+${formatRupiah(amount)}`,
       numericUsd: amount,
       isPositive: true,
-      iconType: 'ETHEREUM',
+      iconType: bca.iconType,
       category: 'RECEIVE',
       status: 'Berhasil',
-      referenceNote: `Transfer Masuk via QR Wallet #${wallet.walletId}`
+      referenceNote: `QRIS / BI-FAST Tuai ID #${wallet.walletId}`
     };
 
     persistAndSetWallet((prev) => ({
       ...prev,
-      walletBalanceNumeric: newBalanceNum,
-      walletBalance: formattedBalance,
-      transactions: [newTx, ...prev.transactions],
-      notifications: [
-        {
-          id: `notif_${Date.now()}`,
-          title: 'Dana Masuk Diterima',
-          message: `Anda menerima +$${formattedAmount} (ETH) melalui QR Wallet #${prev.walletId}.`,
-          time: 'Baru saja',
-          isRead: false
-        },
-        ...prev.notifications
-      ]
+      assets: prev.assets.map((a) =>
+        a.id === bca.id ? { ...a, tokenNumeric: a.tokenNumeric + amount, isConnected: true } : a
+      ),
+      transactions: [newTx, ...prev.transactions]
     }));
 
     setActiveModal('NONE');
-    showToast(`Dana +$${formattedAmount} berhasil diterima!`);
+    showToast(`Dana +${formatRupiah(amount)} masuk ke ${bca.name}!`);
   };
 
   const handleSwapSubmit = () => {
-    const amount = Number.parseFloat(swapAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showToast('Masukkan nominal Swap yang valid');
+    const amount = parseRupiahDigits(swapAmount);
+    if (amount <= 0) {
+      showToast('Masukkan nominal pindah dana yang valid');
+      return;
+    }
+    if (swapFromId === swapToId) {
+      showToast('Pilih dompet sumber dan tujuan yang berbeda');
       return;
     }
     const fromAsset = wallet.assets.find((a) => a.id === swapFromId) || wallet.assets[0];
-    const toAsset = wallet.assets.find((a) => a.id === swapToId) || wallet.assets[2];
-    const formattedAmount = formatCurrencyWithCents(amount);
+    const toAsset = wallet.assets.find((a) => a.id === swapToId) || wallet.assets[3];
+
+    if (amount > fromAsset.tokenNumeric) {
+      showToast(`Saldo ${fromAsset.name} tidak mencukupi (${fromAsset.tokenAmount})`);
+      return;
+    }
 
     const newTx: WalletTransactionItem = {
       id: `tx_${Date.now()}`,
-      title: `${fromAsset.symbol} → ${toAsset.symbol} Swap`,
-      date: 'Just now',
-      amount: `+$${formattedAmount}`,
+      title: `Alokasi ${fromAsset.name} → ${toAsset.name}`,
+      date: 'Baru saja',
+      amount: formatRupiah(amount),
       numericUsd: amount,
       isPositive: true,
       iconType: toAsset.iconType,
       category: 'SWAP',
       status: 'Berhasil',
-      referenceNote: `Konversi Instan ${fromAsset.name} ke ${toAsset.name}`
+      referenceNote: `Kondisikan Keuangan: ${fromAsset.name} ke ${toAsset.name}`
     };
 
     persistAndSetWallet((prev) => ({
       ...prev,
-      transactions: [newTx, ...prev.transactions],
-      notifications: [
-        {
-          id: `notif_${Date.now()}`,
-          title: 'Swap Aset Selesai',
-          message: `Berhasil mengonversi $${formattedAmount} dari ${fromAsset.symbol} ke ${toAsset.symbol}.`,
-          time: 'Baru saja',
-          isRead: false
-        },
-        ...prev.notifications
-      ]
+      assets: prev.assets.map((a) => {
+        if (a.id === fromAsset.id) {
+          return { ...a, tokenNumeric: Math.max(0, a.tokenNumeric - amount) };
+        }
+        if (a.id === toAsset.id) {
+          return { ...a, tokenNumeric: a.tokenNumeric + amount, isConnected: true };
+        }
+        return a;
+      }),
+      transactions: [newTx, ...prev.transactions]
     }));
 
     setActiveModal('NONE');
     setSelectedAssetTab(1);
-    showToast(`Swap $${formattedAmount} (${fromAsset.symbol} → ${toAsset.symbol}) berhasil!`);
+    showToast(`Berhasil memindahkan ${formatRupiah(amount)} dari ${fromAsset.name} ke ${toAsset.name}!`);
   };
 
   const handleSaveFirebaseConfig = () => {
@@ -474,6 +627,13 @@ export function App() {
 
   const unreadNotifCount = wallet.notifications.filter((n) => !n.isRead).length;
 
+  const filteredTransactions = wallet.transactions.filter((tx) => {
+    if (selectedTxFilter === 'IN') return tx.isPositive && tx.category !== 'SWAP';
+    if (selectedTxFilter === 'OUT') return !tx.isPositive;
+    if (selectedTxFilter === 'SWAP') return tx.category === 'SWAP';
+    return true;
+  });
+
   // Render Screen 1: Login
   const renderLoginPhone = () => (
     <div className="tuai-phone-shell" data-testid="screen-login">
@@ -487,15 +647,17 @@ export function App() {
             <TuaiWheatEmblem size={56} />
             <h1 className="tuai-brand-title">Tuai</h1>
           </div>
-          <p className="tuai-brand-tagline">Kelola &amp; Tuai Hasil Finansialmu</p>
+          <p className="tuai-brand-tagline">
+            Hubungkan Semua Dompet &amp; Kondisikan Keuanganmu
+          </p>
 
           <h2 className="tuai-login-heading">
-            {isRegisterMode ? 'Daftar Akun Baru' : 'Masuk ke Akun'}
+            {isRegisterMode ? 'Buat Akun Konektor Tuai' : 'Masuk ke Akun Tuai'}
           </h2>
           <p className="tuai-login-subheading">
             {isRegisterMode
-              ? 'Buat akun untuk menyimpan asetmu di Firebase'
-              : 'Silakan masuk untuk melanjutkan'}
+              ? 'Pantau saldo BCA, Mandiri, BRImo, GoPay & DANA dalam satu layar'
+              : 'Lihat total uangmu di semua Bank & E-Wallet secara menyeluruh'}
           </p>
 
           {isRegisterMode && (
@@ -572,7 +734,7 @@ export function App() {
             className="tuai-primary-pill-btn"
             onClick={() => void handleAuthSubmit()}
           >
-            <span>{isRegisterMode ? 'Daftar Sekarang' : 'Masuk'}</span>
+            <span>{isRegisterMode ? 'Daftar & Hubungkan Dompet' : 'Masuk ke Dashboard'}</span>
             <span className="arrow-right">→</span>
           </button>
 
@@ -620,14 +782,7 @@ export function App() {
     </div>
   );
 
-  // Render Screen 2: Wallet (with Home / Wallet / Chart / Settings tabs)
-  const filteredTransactions = wallet.transactions.filter((tx) => {
-    if (selectedTxFilter === 'IN') return tx.isPositive;
-    if (selectedTxFilter === 'OUT') return !tx.isPositive;
-    if (selectedTxFilter === 'SWAP') return tx.category === 'SWAP';
-    return true;
-  });
-
+  // Render Screen 2: Multi-Wallet & Bank Aggregator
   const renderWalletPhone = () => (
     <div className="tuai-phone-shell" data-testid="screen-wallet">
       <div className="tuai-status-bar dark" style={{ background: '#CE5A31' }}>
@@ -636,9 +791,24 @@ export function App() {
       </div>
       <div className="tuai-wallet-screen">
         {/* Top Header Section */}
-        <div className="tuai-wallet-top-section">
+        <div className="tuai-wallet-top-section" style={{ paddingBottom: 14 }}>
           <div className="tuai-wallet-topbar">
-            <span className="tuai-wallet-title">Wallet</span>
+            <div>
+              <span className="tuai-wallet-title" style={{ display: 'block', fontSize: 18 }}>
+                Dompet Terhubung
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: '#FBE8D3',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                onClick={() => setActiveModal('PLUGIN_MANAGER')}
+              >
+                {wallet.connectedPluginCount} Plugin Aktif • Ketuk untuk kelola konektor
+              </span>
+            </div>
             <div className="tuai-wallet-topbar-actions">
               <button
                 type="button"
@@ -664,7 +834,19 @@ export function App() {
           </div>
 
           <div
+            style={{
+              fontSize: 11,
+              color: '#FBE8D3',
+              textAlign: 'center',
+              marginTop: 6
+            }}
+          >
+            Total Uang Keseluruhan (Bank + E-Wallet)
+          </div>
+
+          <div
             className="tuai-balance-headline"
+            style={{ fontSize: 32, margin: '2px 0 6px' }}
             title="Ketuk untuk sembunyikan/tampilkan saldo"
             onClick={() =>
               persistAndSetWallet((prev) => ({
@@ -673,7 +855,26 @@ export function App() {
               }))
             }
           >
-            {wallet.isBalanceHidden ? '$••••••' : wallet.walletBalance}
+            {wallet.isBalanceHidden ? 'Rp ••••••••' : wallet.walletBalance}
+          </div>
+
+          {/* Bank vs E-Wallet Breakdown Pill */}
+          <div
+            onClick={() => setSelectedBottomNav(0)}
+            style={{
+              background: 'rgba(0,0,0,0.18)',
+              borderRadius: 999,
+              padding: '4px 12px',
+              fontSize: 11,
+              fontWeight: 600,
+              color: '#FFF9F2',
+              marginBottom: 8,
+              cursor: 'pointer'
+            }}
+          >
+            {wallet.isBalanceHidden
+              ? 'Bank: Rp ••••  |  E-Wallet: Rp ••••'
+              : `Bank: ${formatShortRupiah(wallet.bankBalanceNumeric)}  •  E-Wallet: ${formatShortRupiah(wallet.ewalletBalanceNumeric)}`}
           </div>
 
           <button
@@ -682,7 +883,7 @@ export function App() {
             onClick={() =>
               void handleCopyText(
                 wallet.walletId,
-                `Wallet ID ${wallet.walletId} disalin ke clipboard`
+                `ID Konektor Tuai ${wallet.walletId} disalin`
               )
             }
           >
@@ -690,47 +891,72 @@ export function App() {
             <CopyWalletIdIcon size={14} />
           </button>
 
-          {/* 4 Golden Circular Action Buttons */}
-          <div className="tuai-golden-actions-row">
-            <div className="tuai-golden-action-item">
+          {/* 4 Golden Circular Action Buttons with Labels */}
+          <div className="tuai-golden-actions-row" style={{ marginTop: 12 }}>
+            <div
+              className="tuai-golden-action-item"
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+            >
               <button
                 type="button"
                 className="tuai-golden-circle-btn"
-                title="Terima Dana / QR Code"
-                onClick={() => setActiveModal('RECEIVE_QR')}
+                title="Isi Saldo / Top Up"
+                onClick={() => setActiveModal('TOP_UP')}
               >
                 <ActionArrowDownLeftIcon size={20} />
               </button>
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: '#FFF7EC' }}>Isi Saldo</span>
             </div>
-            <div className="tuai-golden-action-item">
+
+            <div
+              className="tuai-golden-action-item"
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+            >
               <button
                 type="button"
                 className="tuai-golden-circle-btn"
-                title="Withdraw Money"
+                title="Catat Pengeluaran / Transfer Keluar"
                 onClick={() => setCurrentScreen('WITHDRAW')}
               >
                 <ActionArrowUpRightIcon size={20} />
               </button>
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: '#FFF7EC' }}>
+                Catat Keluar
+              </span>
             </div>
-            <div className="tuai-golden-action-item">
+
+            <div
+              className="tuai-golden-action-item"
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+            >
               <button
                 type="button"
                 className="tuai-golden-circle-btn"
-                title="Swap / Konversi Aset"
+                title="Pindah Dana Antar Wallet & Bank"
                 onClick={() => setActiveModal('SWAP_ASSET')}
               >
                 <ActionSwapCircularIcon size={22} />
               </button>
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: '#FFF7EC' }}>
+                Pindah Dana
+              </span>
             </div>
-            <div className="tuai-golden-action-item">
+
+            <div
+              className="tuai-golden-action-item"
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+            >
               <button
                 type="button"
                 className="tuai-golden-circle-btn"
-                title="Top Up / Tambah Saldo"
-                onClick={() => setActiveModal('TOP_UP')}
+                title="Kelola Plugin Dompet & Bank"
+                onClick={() => setActiveModal('PLUGIN_MANAGER')}
               >
                 <ActionPlusIcon size={20} />
               </button>
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: '#FFF7EC' }}>
+                Plugin ({wallet.connectedPluginCount})
+              </span>
             </div>
           </div>
         </div>
@@ -760,7 +986,7 @@ export function App() {
                   setSelectedAssetTab(0);
                 }}
               >
-                My Assets
+                Dompet &amp; Bank
               </button>
               <button
                 type="button"
@@ -770,31 +996,66 @@ export function App() {
                   setSelectedAssetTab(1);
                 }}
               >
-                My Transaction
+                Mutasi Gabungan
               </button>
             </div>
 
             <div className="tuai-sheet-scroll-body">
+              {/* TAB 0: KONDISI KEUANGAN */}
               {selectedBottomNav === 0 && (
                 <div>
-                  <div style={{ marginBottom: 12 }}>
-                    <h3 style={{ fontSize: 18, fontWeight: 700, color: '#231A16' }}>
-                      Halo, {wallet.userName}
-                    </h3>
-                    <p style={{ fontSize: 12.5, color: '#8C857E' }}>
-                      Target Panen Finansial (Tuai Goals) &amp; Ringkasan Portofolio
+                  <div
+                    style={{
+                      background: '#FAF3E8',
+                      borderRadius: 16,
+                      padding: 13,
+                      marginBottom: 12,
+                      border: '1px solid #EAB956'
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: '#CE5A31' }}>
+                        STATUS KONDISI KEUANGAN
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: '#2E7D32',
+                          background: '#E7F5EC',
+                          padding: '2px 8px',
+                          borderRadius: 999
+                        }}
+                      >
+                        Aktif
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#231A16', marginTop: 4 }}>
+                      {wallet.financialHealthStatus}
+                    </div>
+                    <p style={{ fontSize: 11.5, color: '#685E55', marginTop: 4, lineHeight: 1.4 }}>
+                      {wallet.financialConditionAdvice}
                     </p>
                   </div>
 
                   {wallet.savingsGoals.map((goal) => {
-                    const pct = Math.min(100, Math.round((goal.currentUsd / goal.targetUsd) * 100));
+                    const pct = Math.min(
+                      100,
+                      Math.round((goal.currentUsd / Math.max(1, goal.targetUsd)) * 100)
+                    );
                     return (
                       <div
                         key={goal.id}
                         style={{
                           background: '#FAF3E8',
                           borderRadius: 16,
-                          padding: 14,
+                          padding: 13,
                           marginBottom: 10
                         }}
                       >
@@ -803,10 +1064,15 @@ export function App() {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            marginBottom: 8
+                            marginBottom: 6
                           }}
                         >
-                          <span style={{ fontSize: 13, fontWeight: 700 }}>{goal.title}</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700 }}>{goal.title}</div>
+                            <div style={{ fontSize: 11, color: '#8C857E' }}>
+                              {goal.linkedWalletsLabel || goal.deadline}
+                            </div>
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
@@ -814,22 +1080,22 @@ export function App() {
                                 ...prev,
                                 savingsGoals: prev.savingsGoals.map((g) =>
                                   g.id === goal.id
-                                    ? { ...g, currentUsd: Math.min(g.targetUsd, g.currentUsd + 250) }
+                                    ? { ...g, targetUsd: g.targetUsd + 500_000 }
                                     : g
                                 )
                               }));
-                              showToast('Panen tabungan +$250 berhasil ditambahkan!');
+                              showToast(`Target ${goal.title} disesuaikan +Rp 500.000`);
                             }}
                             style={{
                               background: '#CE5A31',
                               color: '#FFF',
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: 600,
                               padding: '4px 10px',
                               borderRadius: 999
                             }}
                           >
-                            + Panen $250
+                            Atur Target
                           </button>
                         </div>
                         <div
@@ -859,11 +1125,9 @@ export function App() {
                           }}
                         >
                           <strong>
-                            ${goal.currentUsd.toLocaleString('en-US')} ({pct}%)
+                            {formatRupiah(goal.currentUsd)} ({pct}%)
                           </strong>
-                          <span>
-                            Target ${goal.targetUsd.toLocaleString('en-US')} • {goal.deadline}
-                          </span>
+                          <span>Target {formatShortRupiah(goal.targetUsd)}</span>
                         </div>
                       </div>
                     );
@@ -871,17 +1135,64 @@ export function App() {
                 </div>
               )}
 
+              {/* TAB 1 SUBTAB 0: DOMPET & BANK TERHUBUNG */}
               {selectedBottomNav === 1 && selectedAssetTab === 0 && (
                 <div>
-                  {wallet.assets.map((asset) => (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 8
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: 5 }}>
+                      {(
+                        [
+                          ['ALL', `Semua (${connectedAssets.length})`],
+                          ['BANK', 'Bank'],
+                          ['E-WALLET', 'E-Wallet']
+                        ] as const
+                      ).map(([key, label]) => (
+                        <button
+                          type="button"
+                          key={key}
+                          onClick={() => setSelectedWalletCategory(key)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: 999,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            background: selectedWalletCategory === key ? '#CE5A31' : '#FAF3E8',
+                            color: selectedWalletCategory === key ? '#FFFFFF' : '#231A16'
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('PLUGIN_MANAGER')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: '#EAB956',
+                        color: '#231A16'
+                      }}
+                    >
+                      + Plugin
+                    </button>
+                  </div>
+
+                  {displayedAssets.map((asset) => (
                     <button
                       type="button"
                       key={asset.id}
                       className="tuai-asset-row"
-                      onClick={() => {
-                        setSelectedAssetModal(asset);
-                        setActiveModal('ASSET_DETAIL');
-                      }}
+                      onClick={() => openAssetDetailModal(asset)}
                     >
                       <AssetBadgeIcon iconType={asset.iconType} />
                       <div className="tuai-asset-info-left">
@@ -889,7 +1200,9 @@ export function App() {
                         <div className="tuai-asset-sub">{asset.percentageAndValue}</div>
                       </div>
                       <div className="tuai-asset-info-right">
-                        <div className="tuai-asset-token">{asset.tokenAmount}</div>
+                        <div className="tuai-asset-token">
+                          {wallet.isBalanceHidden ? 'Rp ••••••' : asset.tokenAmount}
+                        </div>
                         <div className="tuai-asset-sub">{asset.totalUsdValue}</div>
                       </div>
                     </button>
@@ -897,6 +1210,7 @@ export function App() {
                 </div>
               )}
 
+              {/* TAB 1 SUBTAB 1: MUTASI GABUNGAN */}
               {selectedBottomNav === 1 && selectedAssetTab === 1 && (
                 <div>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -905,7 +1219,7 @@ export function App() {
                         ['ALL', 'Semua'],
                         ['IN', 'Masuk'],
                         ['OUT', 'Keluar'],
-                        ['SWAP', 'Swap']
+                        ['SWAP', 'Alokasi']
                       ] as const
                     ).map(([key, label]) => (
                       <button
@@ -950,6 +1264,7 @@ export function App() {
                 </div>
               )}
 
+              {/* TAB 2: ANALITIK & SEBARAN UANG */}
               {selectedBottomNav === 2 && (
                 <div>
                   <div
@@ -961,9 +1276,11 @@ export function App() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>Analitik Portofolio</div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#4C8C4A' }}>
-                        +18.64% ({chartTimeframe})
+                      <div style={{ fontSize: 15.5, fontWeight: 700 }}>
+                        Sebaran &amp; Proporsi Uangmu
+                      </div>
+                      <div style={{ fontSize: 11.5, fontWeight: 600, color: '#4C8C4A' }}>
+                        Total {wallet.walletBalance} ({connectedAssets.length} Dompet Aktif)
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -973,9 +1290,9 @@ export function App() {
                           key={tf}
                           onClick={() => setChartTimeframe(tf)}
                           style={{
-                            padding: '4px 9px',
+                            padding: '4px 8px',
                             borderRadius: 999,
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontWeight: 600,
                             background: chartTimeframe === tf ? '#CE5A31' : '#FAF3E8',
                             color: chartTimeframe === tf ? '#FFF' : '#231A16'
@@ -987,182 +1304,190 @@ export function App() {
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      background: '#FAF3E8',
-                      borderRadius: 18,
-                      padding: 12,
-                      marginBottom: 12
-                    }}
-                  >
-                    <svg width="100%" height="110" viewBox="0 0 300 110">
-                      <defs>
-                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#CE5A31" stopOpacity="0.35" />
-                          <stop offset="100%" stopColor="#CE5A31" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d={
-                          chartTimeframe === '24H'
-                            ? 'M0 75 Q 60 65, 110 50 T 210 38 T 300 22 L 300 110 L 0 110 Z'
-                            : chartTimeframe === '1W'
-                              ? 'M0 85 Q 70 50, 130 58 T 220 30 T 300 15 L 300 110 L 0 110 Z'
-                              : 'M0 90 Q 65 70, 125 60 T 215 32 T 300 14 L 300 110 L 0 110 Z'
-                        }
-                        fill="url(#chartGrad)"
-                      />
-                      <path
-                        d={
-                          chartTimeframe === '24H'
-                            ? 'M0 75 Q 60 65, 110 50 T 210 38 T 300 22'
-                            : chartTimeframe === '1W'
-                              ? 'M0 85 Q 70 50, 130 58 T 220 30 T 300 15'
-                              : 'M0 90 Q 65 70, 125 60 T 215 32 T 300 14'
-                        }
-                        fill="none"
-                        stroke="#CE5A31"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
+                  {connectedAssets.map((asset) => {
+                    const pct = Math.min(
+                      100,
+                      Math.round(
+                        (asset.tokenNumeric / Math.max(1, wallet.walletBalanceNumeric)) * 100
+                      )
+                    );
+                    return (
+                      <div key={asset.id} style={{ marginBottom: 9 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: 12,
+                            marginBottom: 3
+                          }}
+                        >
+                          <span style={{ fontWeight: 600 }}>
+                            {asset.name} ({pct}%)
+                          </span>
+                          <span style={{ fontWeight: 700, color: '#CE5A31' }}>
+                            {asset.tokenAmount}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            height: 7,
+                            background: '#F2E7D8',
+                            borderRadius: 999,
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${Math.max(4, pct)}%`,
+                              height: '100%',
+                              background: asset.walletCategory === 'BANK' ? '#CE5A31' : '#00AED6',
+                              borderRadius: 999
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
 
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button
                       type="button"
                       onClick={() => setActiveModal('SWAP_ASSET')}
                       style={{
                         flex: 1,
-                        height: 40,
+                        height: 38,
                         borderRadius: 999,
                         background: '#EAB956',
-                        fontWeight: 600,
-                        fontSize: 13
+                        fontWeight: 700,
+                        fontSize: 12.5
                       }}
                     >
-                      Swap Aset
+                      Pindah Dana
                     </button>
                     <button
                       type="button"
                       onClick={() => setCurrentScreen('WITHDRAW')}
                       style={{
                         flex: 1,
-                        height: 40,
+                        height: 38,
                         borderRadius: 999,
                         background: '#CE5A31',
                         color: '#FFF',
-                        fontWeight: 600,
-                        fontSize: 13
+                        fontWeight: 700,
+                        fontSize: 12.5
                       }}
                     >
-                      Withdraw
+                      Catat Keluar
                     </button>
                   </div>
                 </div>
               )}
 
+              {/* TAB 3: PLUGIN KONEKTOR & PENGATURAN */}
               {selectedBottomNav === 3 && (
                 <div>
-                  <div
-                    style={{
-                      background: '#FAF3E8',
-                      borderRadius: 16,
-                      padding: 12,
-                      marginBottom: 10
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 700 }}>
-                          Database Firebase Cloud
-                        </div>
-                        <div style={{ fontSize: 11.5, color: '#4C8C4A', fontWeight: 600 }}>
-                          {fbStatusLabel}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveModal('FIREBASE_CONFIG')}
-                        style={{
-                          background: '#CE5A31',
-                          color: '#FFF',
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          padding: '6px 12px',
-                          borderRadius: 999
-                        }}
-                      >
-                        Atur Firebase
-                      </button>
-                    </div>
-                  </div>
-
                   <div
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      padding: '8px 0',
-                      borderBottom: '1px solid #F3EFEA',
-                      fontSize: 13
+                      marginBottom: 8
                     }}
                   >
-                    <span>Sembunyikan Saldo (Privacy Mode)</span>
-                    <input
-                      type="checkbox"
-                      checked={wallet.isBalanceHidden}
-                      onChange={() =>
-                        persistAndSetWallet((prev) => ({
-                          ...prev,
-                          isBalanceHidden: !prev.isBalanceHidden
-                        }))
-                      }
-                    />
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700 }}>Plugin Dompet &amp; Bank</div>
+                      <div style={{ fontSize: 11.5, color: '#685E55' }}>
+                        Hubungkan GoPay, DANA, BCA, Mandiri, BRImo, OVO, ShopeePay &amp; SeaBank
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('PLUGIN_MANAGER')}
+                      style={{
+                        background: '#CE5A31',
+                        color: '#FFF',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '6px 11px',
+                        borderRadius: 999
+                      }}
+                    >
+                      + Tambah
+                    </button>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  {wallet.assets.slice(0, 6).map((plugin) => (
+                    <div
+                      key={plugin.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '7px 0',
+                        borderBottom: '1px solid #F3EFEA'
+                      }}
+                    >
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                        onClick={() => openAssetDetailModal(plugin)}
+                      >
+                        <AssetBadgeIcon iconType={plugin.iconType} />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>{plugin.name}</div>
+                          <div style={{ fontSize: 11, color: '#685E55' }}>
+                            {plugin.tokenAmount} • {plugin.allocationRole}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePlugin(plugin.id)}
+                        style={{
+                          padding: '5px 11px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: plugin.isConnected ? '#E7F5EC' : '#FAF3E8',
+                          color: plugin.isConnected ? '#2E7D32' : '#CE5A31'
+                        }}
+                      >
+                        {plugin.isConnected ? 'Aktif ✓' : '+ Hubungkan'}
+                      </button>
+                    </div>
+                  ))}
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                     <button
                       type="button"
                       onClick={() => {
                         persistAndSetWallet(() => DEFAULT_INITIAL_WALLET_STATE);
-                        showToast('Data dompet direset ke posisi awal ($23,867)');
+                        showToast('Data dikembalikan ke 5 Plugin Default (Rp 29.550.000)');
                       }}
                       style={{
                         flex: 1,
-                        height: 40,
+                        height: 36,
                         borderRadius: 999,
                         background: '#EFE5D4',
                         fontWeight: 600,
-                        fontSize: 12.5
+                        fontSize: 12
                       }}
                     >
-                      Reset Data Demo
+                      Reset Default
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        void firebaseService.signOut();
-                        setCurrentScreen('LOGIN');
-                        showToast('Berhasil keluar dari akun');
-                      }}
+                      onClick={() => setActiveModal('FIREBASE_CONFIG')}
                       style={{
                         flex: 1,
-                        height: 40,
+                        height: 36,
                         borderRadius: 999,
                         background: '#CE5A31',
                         color: '#FFF',
                         fontWeight: 600,
-                        fontSize: 12.5
+                        fontSize: 12
                       }}
                     >
-                      Keluar Akun
+                      Cloud Sync
                     </button>
                   </div>
                 </div>
@@ -1179,14 +1504,14 @@ export function App() {
             onClick={() => setSelectedBottomNav(0)}
             style={{
               color: selectedBottomNav === 0 ? '#CE5A31' : '#B86B43',
-              fontWeight: selectedBottomNav === 0 ? 600 : 400
+              fontWeight: selectedBottomNav === 0 ? 700 : 500
             }}
           >
             <NavHomeSmileIcon
               size={22}
               color={selectedBottomNav === 0 ? '#CE5A31' : '#B86B43'}
             />
-            <span>Home</span>
+            <span>Kondisi</span>
           </button>
 
           <button
@@ -1195,11 +1520,11 @@ export function App() {
             onClick={() => setSelectedBottomNav(1)}
             style={{
               color: '#CE5A31',
-              fontWeight: selectedBottomNav === 1 ? 600 : 500
+              fontWeight: selectedBottomNav === 1 ? 700 : 500
             }}
           >
             <NavWalletFilledIcon size={22} color="#CE5A31" />
-            <span>Wallet</span>
+            <span>Dompet</span>
           </button>
 
           <button
@@ -1208,14 +1533,14 @@ export function App() {
             onClick={() => setSelectedBottomNav(2)}
             style={{
               color: selectedBottomNav === 2 ? '#CE5A31' : '#2B2522',
-              fontWeight: selectedBottomNav === 2 ? 600 : 400
+              fontWeight: selectedBottomNav === 2 ? 700 : 500
             }}
           >
             <NavPieChartIcon
               size={22}
               color={selectedBottomNav === 2 ? '#CE5A31' : '#2B2522'}
             />
-            <span>Chart</span>
+            <span>Analitik</span>
           </button>
 
           <button
@@ -1224,24 +1549,21 @@ export function App() {
             onClick={() => setSelectedBottomNav(3)}
             style={{
               color: selectedBottomNav === 3 ? '#CE5A31' : '#2B2522',
-              fontWeight: selectedBottomNav === 3 ? 600 : 400
+              fontWeight: selectedBottomNav === 3 ? 700 : 500
             }}
           >
             <NavSettingsCogIcon
               size={22}
               color={selectedBottomNav === 3 ? '#CE5A31' : '#2B2522'}
             />
-            <span>Settings</span>
+            <span>Plugin</span>
           </button>
         </nav>
       </div>
     </div>
   );
 
-  // Render Screen 3: Withdraw Money
-  const activeWithdrawAsset =
-    wallet.assets.find((a) => a.id === wallet.selectedWithdrawAssetId) || wallet.assets[0];
-
+  // Render Screen 3: Catat Pengeluaran / Transfer Keluar
   const renderWithdrawPhone = () => (
     <div className="tuai-phone-shell" data-testid="screen-withdraw">
       <div className="tuai-status-bar dark" style={{ background: '#CE5A31' }}>
@@ -1259,7 +1581,7 @@ export function App() {
           >
             ‹
           </button>
-          <span className="tuai-withdraw-title">Withdraw Money</span>
+          <span className="tuai-withdraw-title">Catat Pengeluaran</span>
           <button
             type="button"
             className="tuai-withdraw-top-btn"
@@ -1272,7 +1594,7 @@ export function App() {
               }));
               showToast(
                 nextStar
-                  ? 'Disimpan ke daftar penarikan favorit'
+                  ? 'Disimpan ke transaksi pengeluaran favorit'
                   : 'Dihapus dari daftar favorit'
               );
             }}
@@ -1281,16 +1603,16 @@ export function App() {
           </button>
         </div>
 
-        {/* Stacked Exchange Card + Foreground White Sheet */}
+        {/* Stacked Source Wallet Card + Foreground White Sheet */}
         <div className="tuai-withdraw-stack">
           <div
             className="tuai-exchange-peach-card"
             onClick={() => setActiveModal('WITHDRAW_EXCHANGE_PICKER')}
-            title="Pilih aset dan rekening tujuan"
+            title="Pilih dompet sumber dan kategori pengeluaran"
           >
-            <span className="tuai-exchange-label">Exchange</span>
+            <span className="tuai-exchange-label">Sumber Dompet</span>
             <span className="tuai-exchange-dest-pill">
-              {activeWithdrawAsset.symbol} • {wallet.withdrawDestination.split(' (')[0]} ▾
+              {activeWithdrawAsset.name} • {wallet.withdrawDestination} ▾
             </span>
           </div>
 
@@ -1298,13 +1620,18 @@ export function App() {
             <div>
               <div className="tuai-balance-header-row">
                 <div>
-                  <div className="tuai-balance-caption">Current Wallet Balance</div>
-                  <div className="tuai-balance-value">{wallet.walletBalance}</div>
+                  <div className="tuai-balance-caption">
+                    Saldo {activeWithdrawAsset.name} Tersedia
+                  </div>
+                  <div className="tuai-balance-value">{activeWithdrawAsset.tokenAmount}</div>
+                  <div style={{ fontSize: 11, color: '#8C857E', marginTop: 2 }}>
+                    Total Gabungan {wallet.connectedPluginCount} Dompet: {wallet.walletBalance}
+                  </div>
                 </div>
                 <button
                   type="button"
                   className="tuai-plus-peach-btn"
-                  title="Pilih Nominal Cepat / Maksimal"
+                  title="Pilih Nominal Cepat"
                   onClick={handleCyclePresetWithdraw}
                 >
                   <ActionPlusIcon size={16} color="#CE5A31" />
@@ -1312,8 +1639,10 @@ export function App() {
               </div>
 
               <div className="tuai-withdraw-amount-box">
-                <div className="tuai-withdraw-amount-label">Withdraw Amount</div>
-                <div className="tuai-withdraw-amount-value">${withdrawAmount}</div>
+                <div className="tuai-withdraw-amount-label">Nominal Keluar / Transfer</div>
+                <div className="tuai-withdraw-amount-value" style={{ fontSize: 24 }}>
+                  Rp {withdrawAmount}
+                </div>
               </div>
             </div>
 
@@ -1361,7 +1690,6 @@ export function App() {
               </button>
             </div>
 
-            {/* Swipe to Withdraw Button */}
             <SwipeToWithdrawSlider onComplete={handleWithdrawComplete} />
           </div>
         </div>
@@ -1376,9 +1704,11 @@ export function App() {
         <div className="tuai-top-brand">
           <TuaiWheatEmblem size={30} />
           <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#B94A22' }}>Tuai Wallet</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#B94A22' }}>
+              Tuai Multi-Wallet Connector
+            </div>
             <div style={{ fontSize: 11.5, color: '#685E55' }}>
-              Kelola &amp; Tuai Hasil Finansialmu
+              Konektor BCA, Mandiri, BRImo, GoPay, DANA, OVO &amp; Pengatur Kondisi Keuangan
             </div>
           </div>
         </div>
@@ -1386,11 +1716,13 @@ export function App() {
         <button
           type="button"
           className="tuai-status-pill"
-          onClick={() => setActiveModal('FIREBASE_CONFIG')}
-          title="Klik untuk konfigurasi Firebase Cloud"
+          onClick={() => setActiveModal('PLUGIN_MANAGER')}
+          title="Klik untuk mengelola plugin dompet & bank"
         >
           <span className="tuai-status-dot" />
-          <span>{fbStatusLabel}</span>
+          <span>
+            {wallet.connectedPluginCount} Plugin Terhubung • Total {wallet.walletBalance}
+          </span>
         </button>
 
         <div className="tuai-mode-switcher">
@@ -1412,7 +1744,7 @@ export function App() {
               setCurrentScreen('WALLET');
             }}
           >
-            2. Wallet
+            2. Dompet Gabungan
           </button>
           <button
             type="button"
@@ -1422,7 +1754,7 @@ export function App() {
               setCurrentScreen('WITHDRAW');
             }}
           >
-            3. Withdraw
+            3. Catat Keluar
           </button>
           <button
             type="button"
@@ -1460,82 +1792,303 @@ export function App() {
         >
           <div
             className="tuai-modal-sheet"
-            style={{ maxWidth: 460 }}
+            style={{ maxWidth: 460, maxHeight: '86vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="tuai-modal-handle" />
 
-            {activeModal === 'RECEIVE_QR' && (
-              <div style={{ textAlign: 'center' }}>
-                <h3 style={{ fontSize: 19, fontWeight: 700 }}>Terima Aset &amp; QR Dompet</h3>
-                <p style={{ fontSize: 13, color: '#8C857E', marginTop: 4 }}>
-                  Pindai kode QR atau salin ID Dompet Tuai untuk menerima kripto &amp; USD instan
+            {activeModal === 'PLUGIN_MANAGER' && (
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center' }}>
+                  Hub Plugin Konektor Dompet &amp; Bank
+                </h3>
+                <p style={{ fontSize: 12.5, color: '#685E55', textAlign: 'center', marginTop: 4 }}>
+                  Aktifkan plugin untuk menggabungkan saldo dan mengkondisikan keuanganmu
                 </p>
 
                 <div
                   style={{
-                    width: 164,
-                    height: 164,
-                    margin: '16px auto',
-                    background: '#FFF',
-                    borderRadius: 20,
-                    border: '2px solid #EAB956',
-                    padding: 16,
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(7, 1fr)',
-                    gap: 3
+                    background: '#CE5A31',
+                    color: '#FFF',
+                    borderRadius: 16,
+                    padding: '10px 14px',
+                    margin: '12px 0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                   }}
                 >
-                  {[
-                    1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1,
-                    0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1
-                  ].map((bit, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        background: bit ? '#231A16' : 'transparent',
-                        borderRadius: 2
-                      }}
-                    />
-                  ))}
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.9 }}>
+                      Total Saldo Gabungan ({wallet.connectedPluginCount} Plugin Aktif)
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>{wallet.walletBalance}</div>
+                  </div>
+                  <div style={{ fontSize: 11, textAlign: 'right' }}>
+                    <div>Bank: {formatShortRupiah(wallet.bankBalanceNumeric)}</div>
+                    <div>E-Wallet: {formatShortRupiah(wallet.ewalletBalanceNumeric)}</div>
+                  </div>
                 </div>
 
-                <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 16 }}>
-                  Wallet ID: {wallet.walletId} • {wallet.walletAddressHex}
-                </div>
-
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleCopyText(
-                        wallet.walletId,
-                        `Wallet ID ${wallet.walletId} berhasil disalin!`
-                      )
-                    }
+                {wallet.assets.map((plugin) => (
+                  <div
+                    key={plugin.id}
                     style={{
-                      flex: 1,
-                      height: 48,
-                      borderRadius: 999,
-                      background: '#EFE5D4',
-                      fontWeight: 600
+                      background: '#FFF',
+                      borderRadius: 14,
+                      padding: '10px 12px',
+                      marginBottom: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
                     }}
                   >
-                    Salin Wallet ID
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                      onClick={() => openAssetDetailModal(plugin)}
+                    >
+                      <AssetBadgeIcon iconType={plugin.iconType} />
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 700 }}>{plugin.name}</div>
+                        <div style={{ fontSize: 11.5, color: '#CE5A31', fontWeight: 600 }}>
+                          {plugin.tokenAmount} • {plugin.allocationRole}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePlugin(plugin.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 999,
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        background: plugin.isConnected ? '#E7F5EC' : '#CE5A31',
+                        color: plugin.isConnected ? '#2E7D32' : '#FFF'
+                      }}
+                    >
+                      {plugin.isConnected ? 'Aktif ✓' : '+ Hubungkan'}
+                    </button>
+                  </div>
+                ))}
+
+                <div
+                  style={{
+                    background: '#FFF',
+                    borderRadius: 16,
+                    padding: 12,
+                    marginTop: 12
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                    + Tambah Plugin Bank / E-Wallet Lainnya
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    {(['E-WALLET', 'BANK'] as const).map((cat) => (
+                      <button
+                        type="button"
+                        key={cat}
+                        onClick={() => setCustomPluginCategory(cat)}
+                        style={{
+                          flex: 1,
+                          padding: '6px 0',
+                          borderRadius: 999,
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                          background: customPluginCategory === cat ? '#CE5A31' : '#FAF3E8',
+                          color: customPluginCategory === cat ? '#FFF' : '#231A16'
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    className="tuai-pill-input"
+                    style={{
+                      width: '100%',
+                      background: '#FAF3E8',
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      marginBottom: 8
+                    }}
+                    placeholder="Nama Bank / Wallet (misal: BNI, BSI, LinkAja, Bank Jago)"
+                    value={customPluginName}
+                    onChange={(e) => setCustomPluginName(e.target.value)}
+                  />
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <input
+                      type="text"
+                      className="tuai-pill-input"
+                      style={{
+                        flex: 1,
+                        background: '#FAF3E8',
+                        padding: '8px 12px',
+                        borderRadius: 12
+                      }}
+                      placeholder="No. Rek / HP"
+                      value={customPluginAccount}
+                      onChange={(e) => setCustomPluginAccount(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      className="tuai-pill-input"
+                      style={{
+                        flex: 1,
+                        background: '#FAF3E8',
+                        padding: '8px 12px',
+                        borderRadius: 12
+                      }}
+                      placeholder="Saldo Awal (Rp)"
+                      value={customPluginBalance}
+                      onChange={(e) => setCustomPluginBalance(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="tuai-primary-pill-btn"
+                    style={{ height: 42 }}
+                    onClick={handleAddNewCustomPlugin}
+                  >
+                    Tambahkan &amp; Hubungkan Plugin
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeModal === 'ASSET_DETAIL' && selectedAssetModal && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <AssetBadgeIcon iconType={selectedAssetModal.iconType} />
+                  <div>
+                    <h3 style={{ fontSize: 18, fontWeight: 700 }}>{selectedAssetModal.name}</h3>
+                    <div style={{ fontSize: 12, color: '#685E55' }}>
+                      {selectedAssetModal.totalUsdValue} • {selectedAssetModal.allocationRole}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: '#FFF',
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 12
+                  }}
+                >
+                  <label style={{ fontSize: 11.5, color: '#685E55', fontWeight: 600 }}>
+                    Update Saldo Aktual {selectedAssetModal.name} (Rp):
+                  </label>
+                  <input
+                    type="number"
+                    className="tuai-pill-input"
+                    style={{
+                      width: '100%',
+                      background: '#FAF3E8',
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      marginTop: 6,
+                      fontWeight: 700,
+                      fontSize: 16
+                    }}
+                    value={manualBalanceInput}
+                    onChange={(e) => setManualBalanceInput(e.target.value)}
+                  />
+
+                  <label
+                    style={{
+                      fontSize: 11.5,
+                      color: '#685E55',
+                      fontWeight: 600,
+                      display: 'block',
+                      marginTop: 10
+                    }}
+                  >
+                    Nomor Rekening / No. HP Terdaftar:
+                  </label>
+                  <input
+                    type="text"
+                    className="tuai-pill-input"
+                    style={{
+                      width: '100%',
+                      background: '#FAF3E8',
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      marginTop: 6,
+                      fontSize: 13.5
+                    }}
+                    value={manualAccountInput}
+                    onChange={(e) => setManualAccountInput(e.target.value)}
+                  />
+
+                  <button
+                    type="button"
+                    className="tuai-primary-pill-btn"
+                    style={{ marginTop: 12, height: 44 }}
+                    onClick={handleSaveManualWallet}
+                  >
+                    Simpan &amp; Sinkronkan Saldo
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTopUpAssetId(selectedAssetModal.id);
+                      setActiveModal('TOP_UP');
+                    }}
+                    style={{
+                      flex: 1,
+                      height: 42,
+                      borderRadius: 999,
+                      background: '#EFE5D4',
+                      fontWeight: 700,
+                      fontSize: 12
+                    }}
+                  >
+                    + Isi Saldo
                   </button>
                   <button
                     type="button"
-                    onClick={handleSimulateReceive}
+                    onClick={() => {
+                      setSwapFromId(selectedAssetModal.id);
+                      setSwapToId(selectedAssetModal.id === 'bca' ? 'gopay' : 'bca');
+                      setActiveModal('SWAP_ASSET');
+                    }}
                     style={{
                       flex: 1,
-                      height: 48,
+                      height: 42,
+                      borderRadius: 999,
+                      background: '#EAB956',
+                      fontWeight: 700,
+                      fontSize: 12
+                    }}
+                  >
+                    Pindah Dana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      persistAndSetWallet((prev) => ({
+                        ...prev,
+                        selectedWithdrawAssetId: selectedAssetModal.id
+                      }));
+                      setActiveModal('NONE');
+                      setCurrentScreen('WITHDRAW');
+                    }}
+                    style={{
+                      flex: 1,
+                      height: 42,
                       borderRadius: 999,
                       background: '#CE5A31',
                       color: '#FFF',
-                      fontWeight: 600
+                      fontWeight: 700,
+                      fontSize: 12
                     }}
                   >
-                    Terima +$500
+                    Catat Keluar
                   </button>
                 </div>
               </div>
@@ -1543,11 +2096,11 @@ export function App() {
 
             {activeModal === 'SWAP_ASSET' && (
               <div>
-                <h3 style={{ fontSize: 19, fontWeight: 700, textAlign: 'center' }}>
-                  Swap &amp; Konversi Aset Instan
+                <h3 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center' }}>
+                  Pindah Dana &amp; Alokasi Antar Dompet
                 </h3>
-                <p style={{ fontSize: 13, color: '#8C857E', textAlign: 'center', marginTop: 4 }}>
-                  Tukar aset kripto secara real-time dan simpan riwayat ke Firebase
+                <p style={{ fontSize: 12.5, color: '#8C857E', textAlign: 'center', marginTop: 4 }}>
+                  Kondisikan uangmu dari Rekening Bank ke E-Wallet atau sebaliknya
                 </p>
 
                 <div
@@ -1562,15 +2115,15 @@ export function App() {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 11.5, color: '#8C857E' }}>Dari Aset</div>
+                    <div style={{ fontSize: 11.5, color: '#8C857E' }}>Dari Dompet / Bank</div>
                     <select
                       value={swapFromId}
                       onChange={(e) => setSwapFromId(e.target.value)}
-                      style={{ fontSize: 15, fontWeight: 700, marginTop: 4 }}
+                      style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}
                     >
                       {wallet.assets.map((a) => (
                         <option key={a.id} value={a.id}>
-                          {a.name} ({a.symbol})
+                          {a.name} ({a.tokenAmount})
                         </option>
                       ))}
                     </select>
@@ -1583,8 +2136,8 @@ export function App() {
                       setSwapToId(swapFromId);
                     }}
                     style={{
-                      width: 40,
-                      height: 40,
+                      width: 38,
+                      height: 38,
                       borderRadius: '50%',
                       background: '#EAB956',
                       display: 'flex',
@@ -1592,19 +2145,19 @@ export function App() {
                       justifyContent: 'center'
                     }}
                   >
-                    <ActionSwapCircularIcon size={20} />
+                    <ActionSwapCircularIcon size={18} />
                   </button>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11.5, color: '#8C857E' }}>Ke Aset</div>
+                    <div style={{ fontSize: 11.5, color: '#8C857E' }}>Ke Dompet Tujuan</div>
                     <select
                       value={swapToId}
                       onChange={(e) => setSwapToId(e.target.value)}
-                      style={{ fontSize: 15, fontWeight: 700, color: '#CE5A31', marginTop: 4 }}
+                      style={{ fontSize: 14, fontWeight: 700, color: '#CE5A31', marginTop: 4 }}
                     >
                       {wallet.assets.map((a) => (
                         <option key={a.id} value={a.id}>
-                          {a.name} ({a.symbol})
+                          {a.name}
                         </option>
                       ))}
                     </select>
@@ -1612,18 +2165,18 @@ export function App() {
                 </div>
 
                 <div className="tuai-pill-input-wrap" style={{ marginTop: 12 }}>
-                  <span style={{ fontWeight: 700, color: '#CE5A31' }}>USD $</span>
+                  <span style={{ fontWeight: 700, color: '#CE5A31' }}>Rp</span>
                   <input
                     type="number"
                     className="tuai-pill-input"
                     value={swapAmount}
                     onChange={(e) => setSwapAmount(e.target.value)}
-                    placeholder="Nominal Swap"
+                    placeholder="Nominal Alokasi (Rp)"
                   />
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                  {['100', '500', '1000', '2500'].map((preset) => (
+                  {['100000', '250000', '500000', '1000000'].map((preset) => (
                     <button
                       type="button"
                       key={preset}
@@ -1635,10 +2188,10 @@ export function App() {
                         background: '#FFF',
                         color: '#CE5A31',
                         fontWeight: 600,
-                        fontSize: 12.5
+                        fontSize: 11.5
                       }}
                     >
-                      ${preset}
+                      {formatShortRupiah(Number(preset))}
                     </button>
                   ))}
                 </div>
@@ -1648,60 +2201,66 @@ export function App() {
                   className="tuai-primary-pill-btn"
                   onClick={handleSwapSubmit}
                 >
-                  Konfirmasi Swap Sekarang
+                  Pindahkan Saldo Sekarang
                 </button>
               </div>
             )}
 
             {activeModal === 'TOP_UP' && (
               <div>
-                <h3 style={{ fontSize: 19, fontWeight: 700, textAlign: 'center' }}>
-                  Top Up &amp; Tambah Saldo
+                <h3 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center' }}>
+                  Catat Pemasukan / Top Up Dompet
                 </h3>
-                <p style={{ fontSize: 13, color: '#8C857E', textAlign: 'center', marginTop: 4 }}>
-                  Pilih nominal deposit dan metode pembayaran instan
+                <p style={{ fontSize: 12.5, color: '#8C857E', textAlign: 'center', marginTop: 4 }}>
+                  Tambahkan saldo masuk ke Bank atau E-Wallet terhubung
                 </p>
 
                 <div style={{ display: 'flex', gap: 8, margin: '14px 0' }}>
-                  {['100', '500', '1000', '5000'].map((preset) => (
+                  {['100000', '250000', '500000', '2000000'].map((preset) => (
                     <button
                       type="button"
                       key={preset}
                       onClick={() => setTopUpAmount(preset)}
                       style={{
                         flex: 1,
-                        padding: '10px 0',
+                        padding: '9px 0',
                         borderRadius: 14,
                         background: topUpAmount === preset ? '#CE5A31' : '#FFF',
                         color: topUpAmount === preset ? '#FFF' : '#231A16',
                         fontWeight: 600,
-                        fontSize: 13
+                        fontSize: 11.5
                       }}
                     >
-                      +${preset}
+                      +{formatShortRupiah(Number(preset))}
                     </button>
                   ))}
                 </div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, color: '#685E55', fontWeight: 600 }}>
-                    Pilih Aset Tujuan:
+                    Pilih Dompet / Bank Tujuan:
                   </label>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    {wallet.assets.map((a) => (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(4, 1fr)',
+                      gap: 6,
+                      marginTop: 6
+                    }}
+                  >
+                    {wallet.assets.slice(0, 8).map((a) => (
                       <button
                         type="button"
                         key={a.id}
                         onClick={() => setTopUpAssetId(a.id)}
                         style={{
-                          flex: 1,
-                          padding: '8px 0',
+                          padding: '7px 4px',
                           borderRadius: 12,
                           background: topUpAssetId === a.id ? '#F7E4D4' : '#FFF',
                           border:
                             topUpAssetId === a.id ? '1.5px solid #CE5A31' : '1px solid #EFE5D4',
                           fontWeight: 600,
-                          fontSize: 12.5
+                          fontSize: 11
                         }}
                       >
                         {a.symbol}
@@ -1711,9 +2270,9 @@ export function App() {
                 </div>
 
                 {[
-                  'BCA Virtual Account',
-                  'Mandiri Virtual Account',
-                  'QRIS Tuai Instan'
+                  'Transfer dari BCA (myBCA)',
+                  "Transfer dari Livin' by Mandiri",
+                  'Gaji / Pemasukan Tunai & QRIS'
                 ].map((method) => (
                   <button
                     type="button"
@@ -1721,14 +2280,14 @@ export function App() {
                     onClick={() => setTopUpMethod(method)}
                     style={{
                       width: '100%',
-                      padding: '12px 16px',
+                      padding: '11px 14px',
                       marginBottom: 6,
                       borderRadius: 14,
                       background: topUpMethod === method ? '#F7E4D4' : '#FFF',
                       display: 'flex',
                       justifyContent: 'space-between',
                       fontWeight: topUpMethod === method ? 700 : 500,
-                      fontSize: 13.5
+                      fontSize: 13
                     }}
                   >
                     <span>{method}</span>
@@ -1744,8 +2303,54 @@ export function App() {
                   style={{ marginTop: 10 }}
                   onClick={handleTopUpSubmit}
                 >
-                  Top Up +${topUpAmount} Sekarang
+                  Tambah +{formatRupiah(parseRupiahDigits(topUpAmount))} Sekarang
                 </button>
+              </div>
+            )}
+
+            {activeModal === 'RECEIVE_QR' && (
+              <div style={{ textAlign: 'center' }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700 }}>QRIS &amp; ID Konektor Tuai</h3>
+                <p style={{ fontSize: 12.5, color: '#8C857E', marginTop: 4 }}>
+                  Terima transfer ke rekening atau dompet utama yang terhubung
+                </p>
+                <div style={{ fontSize: 13.5, fontWeight: 600, margin: '14px 0' }}>
+                  ID Konektor: {wallet.walletId} • {wallet.walletAddressHex}
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void handleCopyText(
+                        wallet.walletId,
+                        `ID Konektor ${wallet.walletId} berhasil disalin!`
+                      )
+                    }
+                    style={{
+                      flex: 1,
+                      height: 46,
+                      borderRadius: 999,
+                      background: '#EFE5D4',
+                      fontWeight: 600
+                    }}
+                  >
+                    Salin ID
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSimulateReceive}
+                    style={{
+                      flex: 1,
+                      height: 46,
+                      borderRadius: 999,
+                      background: '#CE5A31',
+                      color: '#FFF',
+                      fontWeight: 600
+                    }}
+                  >
+                    Simulasi +Rp 500 Rb
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1759,7 +2364,7 @@ export function App() {
                     marginBottom: 12
                   }}
                 >
-                  <h3 style={{ fontSize: 18, fontWeight: 700 }}>Pusat Notifikasi</h3>
+                  <h3 style={{ fontSize: 18, fontWeight: 700 }}>Notifikasi Kondisi Keuangan</h3>
                   <button
                     type="button"
                     onClick={() => {
@@ -1799,7 +2404,7 @@ export function App() {
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 700 }}>Pemulihan Kata Sandi</h3>
                 <p style={{ fontSize: 13, color: '#8C857E', margin: '6px 0 14px' }}>
-                  Masukkan email terdaftar untuk menerima tautan reset kata sandi Firebase Auth.
+                  Masukkan email terdaftar untuk menerima tautan reset kata sandi.
                 </p>
                 <div className="tuai-pill-input-wrap">
                   <MailOutlineIcon size={20} />
@@ -1825,7 +2430,7 @@ export function App() {
               <div style={{ textAlign: 'center' }}>
                 <h3 style={{ fontSize: 18, fontWeight: 700 }}>Verifikasi Biometrik Tuai</h3>
                 <p style={{ fontSize: 13, color: '#8C857E', marginTop: 6 }}>
-                  Sentuh sensor sidik jari di bawah untuk autentikasi instan
+                  Sentuh sensor sidik jari di bawah untuk membuka brankas multi-wallet
                 </p>
                 <button
                   type="button"
@@ -1833,7 +2438,7 @@ export function App() {
                     setActiveModal('NONE');
                     setCurrentScreen('WALLET');
                     setSelectedBottomNav(1);
-                    showToast('Sidik jari terverifikasi! Selamat datang kembali.');
+                    showToast('Sidik jari terverifikasi! 5 Plugin Dompet & Bank siap.');
                   }}
                   style={{
                     width: 86,
@@ -1849,71 +2454,15 @@ export function App() {
                 >
                   <FingerprintTerracottaIcon size={44} />
                 </button>
-                <div style={{ fontSize: 12.5, color: '#CE5A31', fontWeight: 600 }}>
-                  Ketuk ikon sidik jari untuk memindai
-                </div>
-              </div>
-            )}
-
-            {activeModal === 'ASSET_DETAIL' && selectedAssetModal && (
-              <div style={{ textAlign: 'center' }}>
-                <h3 style={{ fontSize: 19, fontWeight: 700 }}>
-                  {selectedAssetModal.name} ({selectedAssetModal.symbol})
-                </h3>
-                <p style={{ fontSize: 14, color: '#CE5A31', fontWeight: 600, marginTop: 4 }}>
-                  {selectedAssetModal.tokenAmount} • {selectedAssetModal.totalUsdValue}
-                </p>
-                <p style={{ fontSize: 12.5, color: '#4C8C4A', marginTop: 4 }}>
-                  Perubahan 24 Jam: {selectedAssetModal.change24h}
-                </p>
-                <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSwapFromId(selectedAssetModal.id);
-                      setActiveModal('SWAP_ASSET');
-                    }}
-                    style={{
-                      flex: 1,
-                      height: 46,
-                      borderRadius: 999,
-                      background: '#EFE5D4',
-                      fontWeight: 600
-                    }}
-                  >
-                    Swap {selectedAssetModal.symbol}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      persistAndSetWallet((prev) => ({
-                        ...prev,
-                        selectedWithdrawAssetId: selectedAssetModal.id
-                      }));
-                      setActiveModal('NONE');
-                      setCurrentScreen('WITHDRAW');
-                    }}
-                    style={{
-                      flex: 1,
-                      height: 46,
-                      borderRadius: 999,
-                      background: '#CE5A31',
-                      color: '#FFF',
-                      fontWeight: 600
-                    }}
-                  >
-                    Withdraw {selectedAssetModal.symbol}
-                  </button>
-                </div>
               </div>
             )}
 
             {activeModal === 'TRANSACTION_DETAIL' && selectedTxModal && (
               <div style={{ textAlign: 'center' }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700 }}>Bukti Transaksi Resmi</h3>
+                <h3 style={{ fontSize: 18, fontWeight: 700 }}>Detail Mutasi Terhubung</h3>
                 <div
                   style={{
-                    fontSize: 28,
+                    fontSize: 26,
                     fontWeight: 800,
                     margin: '10px 0 4px',
                     color: selectedTxModal.isPositive ? '#4C8C4A' : '#CE5A31'
@@ -1932,7 +2481,7 @@ export function App() {
                   onClick={() =>
                     void handleCopyText(
                       selectedTxModal.id,
-                      `ID Transaksi ${selectedTxModal.id} disalin!`
+                      `ID Referensi ${selectedTxModal.id} disalin!`
                     )
                   }
                   style={{
@@ -1951,10 +2500,10 @@ export function App() {
 
             {activeModal === 'WITHDRAW_EXCHANGE_PICKER' && (
               <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>
-                  Pilih Aset &amp; Rekening Tujuan Penarikan
+                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>
+                  Pilih Dompet Sumber &amp; Keperluan Pengeluaran
                 </h3>
-                {wallet.assets.map((asset) => {
+                {connectedAssets.map((asset) => {
                   const selected = wallet.selectedWithdrawAssetId === asset.id;
                   return (
                     <button
@@ -1968,14 +2517,14 @@ export function App() {
                       }
                       style={{
                         width: '100%',
-                        padding: 12,
+                        padding: 11,
                         marginBottom: 6,
                         borderRadius: 14,
                         background: selected ? '#F7E4D4' : '#FFF',
                         display: 'flex',
                         justifyContent: 'space-between',
                         fontWeight: 600,
-                        fontSize: 13.5
+                        fontSize: 13
                       }}
                     >
                       <span>
@@ -1987,7 +2536,7 @@ export function App() {
                 })}
 
                 <div style={{ fontSize: 12.5, fontWeight: 700, margin: '10px 0 6px' }}>
-                  Rekening / Dompet Tujuan:
+                  Pos / Keperluan Pengeluaran:
                 </div>
                 {wallet.savedDestinations.map((dest) => {
                   const selected = wallet.withdrawDestination === dest.label;
@@ -2001,11 +2550,11 @@ export function App() {
                           withdrawDestination: dest.label
                         }));
                         setActiveModal('NONE');
-                        showToast(`Tujuan penarikan: ${dest.label}`);
+                        showToast(`Keperluan: ${dest.label}`);
                       }}
                       style={{
                         width: '100%',
-                        padding: 12,
+                        padding: 11,
                         marginBottom: 6,
                         borderRadius: 14,
                         background: selected ? '#F7E4D4' : '#FFF',
@@ -2027,17 +2576,16 @@ export function App() {
               <div style={{ textAlign: 'center' }}>
                 <h3 style={{ fontSize: 19, fontWeight: 700 }}>{wallet.userName}</h3>
                 <p style={{ fontSize: 13, color: '#8C857E', marginTop: 2 }}>
-                  {wallet.userEmail} • Wallet ID #{wallet.walletId}
+                  {wallet.userEmail} • ID Konektor #{wallet.walletId}
                 </p>
                 <p style={{ fontSize: 12, color: '#4C8C4A', fontWeight: 600, marginTop: 6 }}>
-                  {fbStatusLabel}
+                  {wallet.connectedPluginCount} Plugin Terhubung • Total {wallet.walletBalance}
                 </p>
                 <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveModal('NONE');
-                      setSelectedBottomNav(3);
+                      setActiveModal('PLUGIN_MANAGER');
                     }}
                     style={{
                       flex: 1,
@@ -2047,7 +2595,7 @@ export function App() {
                       fontWeight: 600
                     }}
                   >
-                    Pengaturan
+                    Kelola Plugin
                   </button>
                   <button
                     type="button"
@@ -2077,15 +2625,14 @@ export function App() {
                   Konfigurasi Database Firebase Cloud
                 </h3>
                 <p style={{ fontSize: 12.5, color: '#685E55', margin: '4px 0 12px' }}>
-                  Aplikasi sudah berjalan otomatis dengan persistensi real-time. Jika Anda ingin
-                  menghubungkan ke proyek Firebase Cloud milik Anda sendiri, masukkan kredensial di
-                  bawah atau melalui file <code>.env</code>:
+                  Seluruh data multi-wallet sudah tersimpan otomatis secara real-time. Masukkan
+                  kredensial Firebase jika ingin menyinkronkan ke proyek Cloud Firestore Anda:
                 </p>
                 <div className="tuai-pill-input-wrap" style={{ height: 46, marginBottom: 10 }}>
                   <input
                     type="text"
                     className="tuai-pill-input"
-                    placeholder="Firebase apiKey (contoh: AIzaSy...)"
+                    placeholder="Firebase apiKey"
                     value={fbApiKey}
                     onChange={(e) => setFbApiKey(e.target.value)}
                   />
@@ -2094,7 +2641,7 @@ export function App() {
                   <input
                     type="text"
                     className="tuai-pill-input"
-                    placeholder="Firebase projectId (contoh: tuai-wallet-prod)"
+                    placeholder="Firebase projectId"
                     value={fbProjectId}
                     onChange={(e) => setFbProjectId(e.target.value)}
                   />
@@ -2103,7 +2650,7 @@ export function App() {
                   <input
                     type="text"
                     className="tuai-pill-input"
-                    placeholder="Firebase appId (contoh: 1:123456:web:abcdef)"
+                    placeholder="Firebase appId"
                     value={fbAppId}
                     onChange={(e) => setFbAppId(e.target.value)}
                   />
@@ -2168,9 +2715,9 @@ const SwipeToWithdrawSlider: React.FC<{ onComplete: () => void }> = ({ onComplet
       }}
       role="button"
       tabIndex={0}
-      aria-label="Swipe to Withdraw"
+      aria-label="Geser atau Ketuk untuk Catat Pengeluaran"
     >
-      <div className="tuai-swipe-label">Swipe to Withdraw</div>
+      <div className="tuai-swipe-label">Geser untuk Catat Keluar</div>
       <div
         className="tuai-swipe-thumb"
         style={{

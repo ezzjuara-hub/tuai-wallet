@@ -1,5 +1,6 @@
 package com.example.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.example.data.TuaiFirebaseRepository
 import java.text.NumberFormat
@@ -16,6 +17,14 @@ enum class TuaiScreen {
 }
 
 enum class AssetIconType {
+    BCA,
+    MANDIRI,
+    BRIMO,
+    GOPAY,
+    DANA,
+    OVO,
+    SHOPEEPAY,
+    SEABANK,
     ETHEREUM,
     BINANCE,
     TETHER
@@ -32,7 +41,8 @@ enum class TuaiActiveModal {
     ASSET_DETAIL,
     TRANSACTION_DETAIL,
     WITHDRAW_EXCHANGE_PICKER,
-    PROFILE_ACCOUNT
+    PROFILE_ACCOUNT,
+    PLUGIN_MANAGER
 }
 
 data class CryptoAssetItem(
@@ -43,24 +53,41 @@ data class CryptoAssetItem(
     val totalUsdValue: String,
     val iconType: AssetIconType,
     val symbol: String = when (iconType) {
+        AssetIconType.BCA -> "BCA"
+        AssetIconType.MANDIRI -> "MANDIRI"
+        AssetIconType.BRIMO -> "BRIMO"
+        AssetIconType.GOPAY -> "GOPAY"
+        AssetIconType.DANA -> "DANA"
+        AssetIconType.OVO -> "OVO"
+        AssetIconType.SHOPEEPAY -> "SHOPEEPAY"
+        AssetIconType.SEABANK -> "SEABANK"
         AssetIconType.ETHEREUM -> "ETH"
         AssetIconType.BINANCE -> "BNB"
         AssetIconType.TETHER -> "USDT"
     },
-    val tokenNumeric: Double = when (iconType) {
-        AssetIconType.ETHEREUM -> 79.006
-        AssetIconType.BINANCE -> 107.70
-        AssetIconType.TETHER -> 79.006
+    val tokenNumeric: Double = 1_000_000.0,
+    val unitPriceUsd: Double = 1.0,
+    val change24h: String = "Terhubung",
+    val walletCategory: String = when (iconType) {
+        AssetIconType.BCA,
+        AssetIconType.MANDIRI,
+        AssetIconType.BRIMO,
+        AssetIconType.SEABANK -> "BANK"
+        else -> "E-WALLET"
     },
-    val unitPriceUsd: Double = when (iconType) {
-        AssetIconType.ETHEREUM -> 1265.72
-        AssetIconType.BINANCE -> 286.10
-        AssetIconType.TETHER -> 1.00
-    },
-    val change24h: String = when (iconType) {
-        AssetIconType.ETHEREUM -> "+4.82%"
-        AssetIconType.BINANCE -> "+2.45%"
-        AssetIconType.TETHER -> "+0.05%"
+    val accountNumber: String = "0812-3456-7890",
+    val allocationRole: String = "Operasional Harian",
+    val isConnected: Boolean = true,
+    val packageName: String = when (iconType) {
+        AssetIconType.BCA -> "com.bca"
+        AssetIconType.MANDIRI -> "id.bmri.livin"
+        AssetIconType.BRIMO -> "id.co.bri.brimo"
+        AssetIconType.GOPAY -> "com.gojek.app"
+        AssetIconType.DANA -> "id.dana"
+        AssetIconType.OVO -> "ovo.id"
+        AssetIconType.SHOPEEPAY -> "com.shopee.id"
+        AssetIconType.SEABANK -> "id.co.bankbkemobile.digitalbank"
+        else -> ""
     }
 )
 
@@ -73,7 +100,7 @@ data class WalletTransactionItem(
     val iconType: AssetIconType,
     val category: String = if (isPositive) "RECEIVE" else "WITHDRAW",
     val status: String = "Berhasil",
-    val referenceNote: String = "Tuai Instant Settlement • Bebas Biaya Admin"
+    val referenceNote: String = "Sinkronisasi Otomatis Plugin Tuai"
 )
 
 data class TuaiNotificationItem(
@@ -89,8 +116,127 @@ data class SavingsGoalItem(
     val title: String,
     val currentUsd: Double,
     val targetUsd: Double,
-    val deadline: String
+    val deadline: String,
+    val linkedWalletsLabel: String = "BCA & Livin' Mandiri"
 )
+
+fun defaultWalletPlugins(): List<CryptoAssetItem> {
+    val rawList = listOf(
+        CryptoAssetItem(
+            id = "bca",
+            name = "BCA (myBCA)",
+            percentageAndValue = "49,1% • Tabungan & Pos Utama",
+            tokenAmount = "Rp 14.500.000",
+            totalUsdValue = "Bank • 8820-1928-31",
+            iconType = AssetIconType.BCA,
+            symbol = "BCA",
+            tokenNumeric = 14_500_000.0,
+            walletCategory = "BANK",
+            accountNumber = "8820-1928-31",
+            allocationRole = "Tabungan & Pos Utama",
+            isConnected = true
+        ),
+        CryptoAssetItem(
+            id = "mandiri",
+            name = "Livin' by Mandiri",
+            percentageAndValue = "27,9% • Dana Darurat & Investasi",
+            tokenAmount = "Rp 8.250.000",
+            totalUsdValue = "Bank • 137-00-982145",
+            iconType = AssetIconType.MANDIRI,
+            symbol = "MANDIRI",
+            tokenNumeric = 8_250_000.0,
+            walletCategory = "BANK",
+            accountNumber = "137-00-982145",
+            allocationRole = "Dana Darurat & Investasi",
+            isConnected = true
+        ),
+        CryptoAssetItem(
+            id = "brimo",
+            name = "BRImo (Bank BRI)",
+            percentageAndValue = "15,6% • Operasional & Tagihan",
+            tokenAmount = "Rp 4.600.000",
+            totalUsdValue = "Bank • 0341-01-029384",
+            iconType = AssetIconType.BRIMO,
+            symbol = "BRIMO",
+            tokenNumeric = 4_600_000.0,
+            walletCategory = "BANK",
+            accountNumber = "0341-01-029384",
+            allocationRole = "Operasional & Tagihan",
+            isConnected = true
+        ),
+        CryptoAssetItem(
+            id = "gopay",
+            name = "GoPay",
+            percentageAndValue = "4,6% • Transport & Makan Harian",
+            tokenAmount = "Rp 1.350.000",
+            totalUsdValue = "E-Wallet • 0812-3456-7890",
+            iconType = AssetIconType.GOPAY,
+            symbol = "GOPAY",
+            tokenNumeric = 1_350_000.0,
+            walletCategory = "E-WALLET",
+            accountNumber = "0812-3456-7890",
+            allocationRole = "Transport & Makan Harian",
+            isConnected = true
+        ),
+        CryptoAssetItem(
+            id = "dana",
+            name = "DANA",
+            percentageAndValue = "2,9% • Belanja & QRIS Harian",
+            tokenAmount = "Rp 850.000",
+            totalUsdValue = "E-Wallet • 0812-3456-7890",
+            iconType = AssetIconType.DANA,
+            symbol = "DANA",
+            tokenNumeric = 850_000.0,
+            walletCategory = "E-WALLET",
+            accountNumber = "0812-3456-7890",
+            allocationRole = "Belanja & QRIS Harian",
+            isConnected = true
+        ),
+        CryptoAssetItem(
+            id = "ovo",
+            name = "OVO",
+            percentageAndValue = "Plugin Tersedia • Hiburan & Grab",
+            tokenAmount = "Rp 620.000",
+            totalUsdValue = "E-Wallet • 0812-3456-7890",
+            iconType = AssetIconType.OVO,
+            symbol = "OVO",
+            tokenNumeric = 620_000.0,
+            walletCategory = "E-WALLET",
+            accountNumber = "0812-3456-7890",
+            allocationRole = "Hiburan & Langganan",
+            isConnected = false
+        ),
+        CryptoAssetItem(
+            id = "shopeepay",
+            name = "ShopeePay",
+            percentageAndValue = "Plugin Tersedia • Belanja Online",
+            tokenAmount = "Rp 450.000",
+            totalUsdValue = "E-Wallet • 0812-3456-7890",
+            iconType = AssetIconType.SHOPEEPAY,
+            symbol = "SPAY",
+            tokenNumeric = 450_000.0,
+            walletCategory = "E-WALLET",
+            accountNumber = "0812-3456-7890",
+            allocationRole = "Belanja E-Commerce",
+            isConnected = false
+        ),
+        CryptoAssetItem(
+            id = "seabank",
+            name = "SeaBank",
+            percentageAndValue = "Plugin Tersedia • Tabungan Cair",
+            tokenAmount = "Rp 3.500.000",
+            totalUsdValue = "Bank • 9012-8834-1920",
+            iconType = AssetIconType.SEABANK,
+            symbol = "SEABANK",
+            tokenNumeric = 3_500_000.0,
+            walletCategory = "BANK",
+            accountNumber = "9012-8834-1920",
+            allocationRole = "Tabungan Bunga Harian",
+            isConnected = false
+        )
+    )
+    return TuaiViewModel.recalculateAssetsBreakdown(rawList)
+}
 
 data class TuaiUiState(
     val currentScreen: TuaiScreen = TuaiScreen.LOGIN,
@@ -102,149 +248,168 @@ data class TuaiUiState(
     val isPasswordVisible: Boolean = false,
     val userName: String = "Alex Pratama",
     val userEmail: String = "alex.pratama@tuai.id",
-    val walletBalanceNumeric: Double = 23867.0,
-    val walletBalance: String = "$23,867",
+    val walletBalanceNumeric: Double = 29_550_000.0,
+    val walletBalance: String = "Rp 29.550.000",
+    val bankBalanceNumeric: Double = 27_350_000.0,
+    val ewalletBalanceNumeric: Double = 2_200_000.0,
+    val connectedPluginCount: Int = 5,
+    val financialHealthStatus: String = "Sehat & Terkendali (92% Bank • 8% E-Wallet)",
+    val financialConditionAdvice: String = "Saldo kas harian di GoPay & DANA (Rp 2,20 Jt) cukup untuk operasional, sementara Rp 27,35 Jt aman di BCA, Mandiri & BRImo.",
     val walletId: String = "2678900085",
-    val walletAddressHex: String = "0x71C9...89A4F2",
+    val walletAddressHex: String = "ID-TUAI-882019",
     val isBalanceHidden: Boolean = false,
     val biometricEnabled: Boolean = true,
     val notificationsEnabled: Boolean = true,
-    val selectedAssetTab: Int = 0, // 0 = My Assets, 1 = My Transaction
-    val selectedBottomNav: Int = 1, // 0 = Home, 1 = Wallet, 2 = Chart, 3 = Settings
+    val selectedAssetTab: Int = 0, // 0 = Dompet & Bank, 1 = Mutasi Gabungan
+    val selectedWalletCategoryFilter: String = "ALL", // ALL, BANK, E-WALLET
+    val selectedBottomNav: Int = 1, // 0 = Kondisi, 1 = Dompet, 2 = Analitik, 3 = Plugin
     val selectedTxFilter: String = "ALL", // ALL, IN, OUT, SWAP
-    val selectedChartTimeframe: String = "1M", // 24H, 1W, 1M, 1Y, ALL
-    val selectedChartAssetId: String = "all", // all, eth, bnb, usdt
-    val withdrawAmount: String = "19,29.00",
+    val selectedChartTimeframe: String = "1M", // 24H, 1W, 1M, 1Y
+    val selectedChartAssetId: String = "all",
+    val withdrawAmount: String = "150.000",
     val isWithdrawStarred: Boolean = false,
-    val selectedWithdrawAssetId: String = "eth",
-    val withdrawDestination: String = "BCA • 8820192831 (Alex Pratama)",
+    val selectedWithdrawAssetId: String = "gopay",
+    val withdrawDestination: String = "QRIS & Makan Harian",
     val activeModal: TuaiActiveModal = TuaiActiveModal.NONE,
     val selectedAssetForModal: CryptoAssetItem? = null,
     val selectedTxForModal: WalletTransactionItem? = null,
-    val swapFromAssetId: String = "eth",
-    val swapToAssetId: String = "usdt",
-    val swapAmountInput: String = "500",
-    val topUpAmountInput: String = "1000",
-    val topUpMethod: String = "BCA Virtual Account",
-    val topUpTargetAssetId: String = "eth",
+    val manualBalanceInput: String = "",
+    val manualAccountInput: String = "",
+    val customPluginNameInput: String = "",
+    val customPluginCategoryInput: String = "E-WALLET",
+    val customPluginAccountInput: String = "",
+    val customPluginBalanceInput: String = "500000",
+    val swapFromAssetId: String = "bca",
+    val swapToAssetId: String = "gopay",
+    val swapAmountInput: String = "500000",
+    val topUpAmountInput: String = "500000",
+    val topUpMethod: String = "Transfer dari BCA (myBCA)",
+    val topUpTargetAssetId: String = "gopay",
     val recoveryInput: String = "",
     val isFirebaseSynced: Boolean = true,
-    val lastSyncedLabel: String = "Baru saja • Firebase Cloud & Local",
-    val assets: List<CryptoAssetItem> = listOf(
-        CryptoAssetItem(
-            id = "eth",
-            name = "Ethereum",
-            percentageAndValue = "28,74% ($28,015)",
-            tokenAmount = "79.006 ETH",
-            totalUsdValue = "$100,000.00",
-            iconType = AssetIconType.ETHEREUM,
-            tokenNumeric = 79.006,
-            unitPriceUsd = 1265.72
-        ),
-        CryptoAssetItem(
-            id = "bnb",
-            name = "Binance",
-            percentageAndValue = "15.96% ($28,015)",
-            tokenAmount = "107.70 BNB",
-            totalUsdValue = "$30,812.92",
-            iconType = AssetIconType.BINANCE,
-            tokenNumeric = 107.70,
-            unitPriceUsd = 286.10
-        ),
-        CryptoAssetItem(
-            id = "usdt",
-            name = "Tether usd",
-            percentageAndValue = "29.74% ($26,015)",
-            tokenAmount = "79.006 ETH",
-            totalUsdValue = "$100,000.00",
-            iconType = AssetIconType.TETHER,
-            tokenNumeric = 79.006,
-            unitPriceUsd = 1265.72
-        )
-    ),
+    val lastSyncedLabel: String = "Baru saja • 5 Plugin Dompet & Bank Aktif",
+    val assets: List<CryptoAssetItem> = defaultWalletPlugins(),
     val transactions: List<WalletTransactionItem> = listOf(
         WalletTransactionItem(
             id = "tx1",
-            title = "Withdraw Ethereum",
-            date = "Today, 09:41 AM",
-            amount = "-$1,929.00",
-            isPositive = false,
-            iconType = AssetIconType.ETHEREUM,
-            category = "WITHDRAW",
+            title = "Top Up GoPay dari BCA",
+            date = "Hari ini, 09:41 WIB",
+            amount = "+Rp 500.000",
+            isPositive = true,
+            iconType = AssetIconType.GOPAY,
+            category = "SWAP",
             status = "Berhasil",
-            referenceNote = "Transfer ke BCA • 8820192831"
+            referenceNote = "Alokasi Kas Harian: BCA → GoPay"
         ),
         WalletTransactionItem(
             id = "tx2",
-            title = "Received Binance",
-            date = "Yesterday, 04:15 PM",
-            amount = "+$4,250.00",
+            title = "Gaji & Pemasukan Mandiri",
+            date = "Kemarin, 16:15 WIB",
+            amount = "+Rp 8.250.000",
             isPositive = true,
-            iconType = AssetIconType.BINANCE,
+            iconType = AssetIconType.MANDIRI,
             category = "RECEIVE",
             status = "Berhasil",
-            referenceNote = "Deposit Masuk dari 0x48F...91B"
+            referenceNote = "Rekening Livin' Mandiri • 137-00-982145"
         ),
         WalletTransactionItem(
             id = "tx3",
-            title = "Tether usd Swap",
-            date = "Oct 29, 11:20 AM",
-            amount = "+$2,600.00",
-            isPositive = true,
-            iconType = AssetIconType.TETHER,
-            category = "SWAP",
+            title = "Bayar QRIS Makan & Kopi (DANA)",
+            date = "Kemarin, 12:30 WIB",
+            amount = "-Rp 85.000",
+            isPositive = false,
+            iconType = AssetIconType.DANA,
+            category = "WITHDRAW",
             status = "Berhasil",
-            referenceNote = "Konversi Instan ETH → USDT"
+            referenceNote = "Pos Belanja & QRIS Harian via DANA"
+        ),
+        WalletTransactionItem(
+            id = "tx4",
+            title = "Tagihan Listrik & Internet (BRImo)",
+            date = "28 Okt, 19:20 WIB",
+            amount = "-Rp 420.000",
+            isPositive = false,
+            iconType = AssetIconType.BRIMO,
+            category = "WITHDRAW",
+            status = "Berhasil",
+            referenceNote = "Pos Operasional & Tagihan via BRImo"
         )
     ),
     val notifications: List<TuaiNotificationItem> = listOf(
         TuaiNotificationItem(
             id = "notif1",
-            title = "Sinkronisasi Firebase Aktif",
-            message = "Dompet Tuai #2678900085 telah terhubung dan diamankan dengan enkripsi real-time.",
+            title = "5 Plugin Dompet & Bank Terhubung",
+            message = "BCA, Livin' Mandiri, BRImo, GoPay, dan DANA aktif disinkronkan secara real-time.",
             time = "Baru saja",
             isRead = false
         ),
         TuaiNotificationItem(
             id = "notif2",
-            title = "Deposit Binance Diterima",
-            message = "Saldo sebesar +$4,250.00 berhasil masuk ke portofolio Binance (BNB).",
-            time = "Kemarin, 16:15",
+            title = "Analisis Kondisi Keuanganmu",
+            message = "Total uangmu saat ini Rp 29.550.000. Sebanyak 92,6% tersimpan aman di rekening Bank.",
+            time = "10 menit lalu",
             isRead = false
         ),
         TuaiNotificationItem(
             id = "notif3",
-            title = "Target Panen Bulan Ini",
-            message = "Portofolio Anda tumbuh +12.4% bulan ini. Saatnya panen hasil finansialmu!",
-            time = "2 hari lalu",
+            title = "Pengingat Alokasi Kas E-Wallet",
+            message = "Saldo GoPay (Rp 1,35 Jt) & DANA (Rp 850 Rb) berada di batas aman untuk pengeluaran minggu ini.",
+            time = "Kemarin",
             isRead = true
         )
     ),
     val savingsGoals: List<SavingsGoalItem> = listOf(
         SavingsGoalItem(
             id = "goal1",
-            title = "Dana Panen Pensiun & Kebebasan Finansial",
-            currentUsd = 18500.0,
-            targetUsd = 25000.0,
-            deadline = "Des 2027"
+            title = "Pos Dana Darurat & Tabungan Aman",
+            currentUsd = 22_750_000.0,
+            targetUsd = 30_000_000.0,
+            deadline = "BCA & Livin' Mandiri",
+            linkedWalletsLabel = "Tersimpan di BCA & Mandiri"
         ),
         SavingsGoalItem(
             id = "goal2",
-            title = "Cadangan Likuiditas Kripto & Staking",
-            currentUsd = 5367.0,
-            targetUsd = 10000.0,
-            deadline = "Agu 2027"
+            title = "Jatah Kas Harian & QRIS (E-Wallet)",
+            currentUsd = 2_200_000.0,
+            targetUsd = 4_000_000.0,
+            deadline = "GoPay & DANA",
+            linkedWalletsLabel = "Tersedia di GoPay, DANA & E-Wallet"
+        ),
+        SavingsGoalItem(
+            id = "goal3",
+            title = "Pos Tagihan Rutin & Operasional",
+            currentUsd = 4_600_000.0,
+            targetUsd = 5_000_000.0,
+            deadline = "BRImo (BRI)",
+            linkedWalletsLabel = "Siap pakai di BRImo & Bank"
         )
     ),
     val toastMessage: String? = null
-)
+) {
+    val connectedAssets: List<CryptoAssetItem>
+        get() = assets.filter { it.isConnected }
+}
 
 class TuaiViewModel(
     private val repository: TuaiFirebaseRepository = TuaiFirebaseRepository()
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(TuaiUiState())
+    private val _uiState = MutableStateFlow(syncAggregatedBalances(TuaiUiState()))
     val uiState: StateFlow<TuaiUiState> = _uiState.asStateFlow()
+    private var contextInitialized = false
+
+    fun attachContext(context: Context) {
+        if (!contextInitialized) {
+            contextInitialized = true
+            repository.attachContext(context)
+            val saved = repository.loadSavedWalletState(_uiState.value.walletId)
+            if (saved != null) {
+                _uiState.update { current ->
+                    saved.copy(currentScreen = current.currentScreen)
+                }
+            }
+        }
+    }
 
     fun navigateTo(screen: TuaiScreen) {
         _uiState.update {
@@ -293,7 +458,7 @@ class TuaiViewModel(
                         isRegisterMode = false,
                         currentScreen = TuaiScreen.WALLET,
                         selectedBottomNav = 1,
-                        toastMessage = "Akun baru berhasil dibuat!"
+                        toastMessage = "Akun Tuai berhasil dibuat! Semua plugin dompet siap digunakan."
                     )
                 }
                 return
@@ -325,9 +490,7 @@ class TuaiViewModel(
                 }
             }
         } else {
-            // Login Mode
             if (state.emailOrPhone.isBlank() && state.password.isBlank()) {
-                // Mendukung akses langsung / pengujian instan tanpa kendala
                 _uiState.update {
                     it.copy(
                         currentScreen = TuaiScreen.WALLET,
@@ -390,6 +553,8 @@ class TuaiViewModel(
             it.copy(
                 selectedAssetForModal = asset,
                 selectedWithdrawAssetId = asset.id,
+                manualBalanceInput = asset.tokenNumeric.toLong().toString(),
+                manualAccountInput = asset.accountNumber,
                 activeModal = TuaiActiveModal.ASSET_DETAIL
             )
         }
@@ -402,6 +567,205 @@ class TuaiViewModel(
                 activeModal = TuaiActiveModal.TRANSACTION_DETAIL
             )
         }
+    }
+
+    // Plugin Hub & Wallet Connection Controls
+    fun togglePluginConnection(assetId: String) {
+        _uiState.update { state ->
+            val target = state.assets.find { it.id == assetId } ?: return@update state
+            val connectedCount = state.assets.count { it.isConnected }
+            if (target.isConnected && connectedCount <= 1) {
+                return@update state.copy(
+                    toastMessage = "Minimal 1 dompet/bank harus tetap terhubung"
+                )
+            }
+            val nowConnected = !target.isConnected
+            val updatedAssets = state.assets.map { item ->
+                if (item.id == assetId) item.copy(isConnected = nowConnected) else item
+            }
+            val refreshedTarget = updatedAssets.find { it.id == assetId }
+            val next = syncAggregatedBalances(
+                state.copy(
+                    assets = updatedAssets,
+                    selectedAssetForModal = if (state.selectedAssetForModal?.id == assetId) {
+                        refreshedTarget
+                    } else {
+                        state.selectedAssetForModal
+                    },
+                    toastMessage = if (nowConnected) {
+                        "Plugin ${target.name} berhasil dihubungkan (+${formatHeadlineBalance(target.tokenNumeric)})"
+                    } else {
+                        "Plugin ${target.name} diputuskan dari total saldo"
+                    }
+                )
+            )
+            repository.saveWalletState(next)
+            next
+        }
+    }
+
+    fun updateManualBalanceInput(value: String) {
+        _uiState.update {
+            it.copy(manualBalanceInput = value.filter { ch -> ch.isDigit() })
+        }
+    }
+
+    fun updateManualAccountInput(value: String) {
+        _uiState.update {
+            it.copy(manualAccountInput = value)
+        }
+    }
+
+    fun saveManualWalletBalance(assetId: String) {
+        val state = _uiState.value
+        val newBalance = state.manualBalanceInput.toDoubleOrNull()
+        if (newBalance == null || newBalance < 0.0) {
+            showMessage("Masukkan nominal saldo Rupiah yang valid")
+            return
+        }
+        val target = state.assets.find { it.id == assetId } ?: return
+        val newAcc = state.manualAccountInput.trim().ifBlank { target.accountNumber }
+        val diff = newBalance - target.tokenNumeric
+
+        val updatedAssets = state.assets.map { item ->
+            if (item.id == assetId) {
+                item.copy(
+                    tokenNumeric = newBalance,
+                    accountNumber = newAcc,
+                    isConnected = true
+                )
+            } else {
+                item
+            }
+        }
+
+        val adjustmentTx = if (kotlin.math.abs(diff) >= 1.0) {
+            WalletTransactionItem(
+                id = "tx_${System.currentTimeMillis()}",
+                title = "Penyesuaian Saldo ${target.name}",
+                date = "Baru saja",
+                amount = if (diff >= 0) "+${formatHeadlineBalance(diff)}" else "-${formatHeadlineBalance(-diff)}",
+                isPositive = diff >= 0,
+                iconType = target.iconType,
+                category = if (diff >= 0) "RECEIVE" else "WITHDRAW",
+                status = "Tersinkron",
+                referenceNote = "Update Saldo Plugin ${target.name} menjadi ${formatHeadlineBalance(newBalance)}"
+            )
+        } else null
+
+        _uiState.update { current ->
+            val next = syncAggregatedBalances(
+                current.copy(
+                    assets = updatedAssets,
+                    transactions = if (adjustmentTx != null) listOf(adjustmentTx) + current.transactions else current.transactions,
+                    activeModal = TuaiActiveModal.NONE,
+                    selectedAssetForModal = null,
+                    toastMessage = "Saldo ${target.name} diperbarui menjadi ${formatHeadlineBalance(newBalance)}!"
+                )
+            )
+            repository.saveWalletState(next)
+            next
+        }
+    }
+
+    fun cycleWalletAllocationRole(assetId: String) {
+        val roles = listOf(
+            "Tabungan & Pos Utama",
+            "Dana Darurat & Investasi",
+            "Operasional & Tagihan",
+            "Transport & Makan Harian",
+            "Belanja & QRIS Harian",
+            "Hiburan & Gaya Hidup"
+        )
+        _uiState.update { state ->
+            val target = state.assets.find { it.id == assetId } ?: return@update state
+            val nextIdx = (roles.indexOf(target.allocationRole) + 1) % roles.size
+            val newRole = roles[nextIdx]
+            val updatedAssets = state.assets.map { item ->
+                if (item.id == assetId) item.copy(allocationRole = newRole) else item
+            }
+            val next = syncAggregatedBalances(
+                state.copy(
+                    assets = updatedAssets,
+                    selectedAssetForModal = updatedAssets.find { it.id == assetId },
+                    toastMessage = "Pos ${target.name} diatur ke: $newRole"
+                )
+            )
+            repository.saveWalletState(next)
+            next
+        }
+    }
+
+    fun updateCustomPluginName(value: String) {
+        _uiState.update { it.copy(customPluginNameInput = value) }
+    }
+
+    fun updateCustomPluginCategory(category: String) {
+        _uiState.update { it.copy(customPluginCategoryInput = category) }
+    }
+
+    fun updateCustomPluginAccount(value: String) {
+        _uiState.update { it.copy(customPluginAccountInput = value) }
+    }
+
+    fun updateCustomPluginBalance(value: String) {
+        _uiState.update { it.copy(customPluginBalanceInput = value.filter { ch -> ch.isDigit() }) }
+    }
+
+    fun addNewCustomPlugin() {
+        val state = _uiState.value
+        val cleanName = state.customPluginNameInput.trim()
+        if (cleanName.isBlank()) {
+            showMessage("Masukkan nama Bank atau E-Wallet (misal: BNI, BSI, LinkAja)")
+            return
+        }
+        val balance = state.customPluginBalanceInput.toDoubleOrNull() ?: 0.0
+        val account = state.customPluginAccountInput.trim().ifBlank { "0812-9988-7766" }
+        val category = state.customPluginCategoryInput
+        val iconType = when {
+            cleanName.contains("bca", ignoreCase = true) -> AssetIconType.BCA
+            cleanName.contains("mandiri", ignoreCase = true) || cleanName.contains("livin", ignoreCase = true) -> AssetIconType.MANDIRI
+            cleanName.contains("bri", ignoreCase = true) -> AssetIconType.BRIMO
+            cleanName.contains("gopay", ignoreCase = true) || cleanName.contains("gojek", ignoreCase = true) -> AssetIconType.GOPAY
+            cleanName.contains("dana", ignoreCase = true) -> AssetIconType.DANA
+            cleanName.contains("ovo", ignoreCase = true) -> AssetIconType.OVO
+            cleanName.contains("shopee", ignoreCase = true) -> AssetIconType.SHOPEEPAY
+            category == "BANK" -> AssetIconType.SEABANK
+            else -> AssetIconType.GOPAY
+        }
+        val newId = "plugin_${System.currentTimeMillis()}"
+        val newPlugin = CryptoAssetItem(
+            id = newId,
+            name = cleanName,
+            percentageAndValue = "",
+            tokenAmount = formatHeadlineBalance(balance),
+            totalUsdValue = "$category • $account",
+            iconType = iconType,
+            symbol = cleanName.take(7).uppercase(),
+            tokenNumeric = balance,
+            walletCategory = category,
+            accountNumber = account,
+            allocationRole = if (category == "BANK") "Tabungan & Cadangan" else "Operasional & QRIS",
+            isConnected = true
+        )
+
+        _uiState.update { current ->
+            val next = syncAggregatedBalances(
+                current.copy(
+                    assets = current.assets + newPlugin,
+                    customPluginNameInput = "",
+                    customPluginAccountInput = "",
+                    customPluginBalanceInput = "500000",
+                    toastMessage = "Plugin $cleanName (${formatHeadlineBalance(balance)}) berhasil ditambahkan!"
+                )
+            )
+            repository.saveWalletState(next)
+            next
+        }
+    }
+
+    fun selectWalletCategoryFilter(filter: String) {
+        _uiState.update { it.copy(selectedWalletCategoryFilter = filter) }
     }
 
     fun updateRecoveryInput(value: String) {
@@ -465,7 +829,7 @@ class TuaiViewModel(
             val enabled = !state.notificationsEnabled
             val next = state.copy(
                 notificationsEnabled = enabled,
-                toastMessage = if (enabled) "Notifikasi transaksi aktif" else "Notifikasi transaksi dibisukan"
+                toastMessage = if (enabled) "Notifikasi mutasi lintas dompet aktif" else "Notifikasi transaksi dibisukan"
             )
             repository.saveWalletState(next)
             next
@@ -487,9 +851,9 @@ class TuaiViewModel(
             val next = state.copy(
                 isWithdrawStarred = starred,
                 toastMessage = if (starred) {
-                    "Disimpan ke penarikan favorit"
+                    "Disimpan ke transaksi favorit"
                 } else {
-                    "Dihapus dari penarikan favorit"
+                    "Dihapus dari transaksi favorit"
                 }
             )
             repository.saveWalletState(next)
@@ -499,53 +863,60 @@ class TuaiViewModel(
 
     fun selectWithdrawAsset(assetId: String, destination: String? = null) {
         _uiState.update { state ->
+            val asset = state.assets.find { it.id == assetId }
             state.copy(
                 selectedWithdrawAssetId = assetId,
-                withdrawDestination = destination ?: state.withdrawDestination,
+                withdrawDestination = destination ?: asset?.allocationRole ?: state.withdrawDestination,
                 activeModal = TuaiActiveModal.NONE
             )
         }
     }
 
+    fun updateWithdrawDestination(destination: String) {
+        _uiState.update { it.copy(withdrawDestination = destination) }
+    }
+
     fun onKeypadDigit(digit: String) {
         _uiState.update { state ->
-            val current = state.withdrawAmount
-            val next = if (current == "0.00" || current == "0" || current == "19,29.00") {
+            val currentCleaned = state.withdrawAmount.filter { it.isDigit() }
+            val nextRaw = if (currentCleaned == "0" || state.withdrawAmount == "150.000") {
                 digit
-            } else if (current.length < 10) {
-                current + digit
+            } else if (currentCleaned.length < 9) {
+                currentCleaned + digit
             } else {
-                current
+                currentCleaned
             }
-            state.copy(withdrawAmount = next)
+            val numeric = nextRaw.toDoubleOrNull() ?: 0.0
+            state.copy(withdrawAmount = formatCurrencyPlain(numeric))
         }
     }
 
     fun onKeypadReset() {
-        _uiState.update { it.copy(withdrawAmount = "19,29.00") }
+        _uiState.update { it.copy(withdrawAmount = "150.000") }
     }
 
     fun cycleQuickWithdrawAmount() {
         _uiState.update { state ->
-            val presets = listOf("100.00", "500.00", "1,000.00", formatCurrencyPlain(state.walletBalanceNumeric))
+            val presets = listOf("50.000", "150.000", "500.000", "1.000.000")
             val currentIdx = presets.indexOf(state.withdrawAmount)
             val nextAmount = presets[(currentIdx + 1) % presets.size]
             state.copy(
                 withdrawAmount = nextAmount,
-                toastMessage = "Nominal cepat: $$nextAmount"
+                toastMessage = "Nominal cepat: Rp $nextAmount"
             )
         }
     }
 
     fun onKeypadBackspace() {
         _uiState.update { state ->
-            val current = state.withdrawAmount
-            val next = if (current.length <= 1 || current == "19,29.00") {
+            val currentCleaned = state.withdrawAmount.filter { it.isDigit() }
+            val nextRaw = if (currentCleaned.length <= 1) {
                 "0"
             } else {
-                current.dropLast(1)
+                currentCleaned.dropLast(1)
             }
-            state.copy(withdrawAmount = next)
+            val numeric = nextRaw.toDoubleOrNull() ?: 0.0
+            state.copy(withdrawAmount = formatCurrencyPlain(numeric))
         }
     }
 
@@ -553,50 +924,58 @@ class TuaiViewModel(
         val state = _uiState.value
         val numericAmount = parseWithdrawAmount(state.withdrawAmount)
         if (numericAmount <= 0.0) {
-            showMessage("Masukkan nominal penarikan lebih dari $0")
+            showMessage("Masukkan nominal lebih dari Rp 0")
             return
         }
-        if (numericAmount > state.walletBalanceNumeric) {
-            showMessage("Saldo tidak mencukupi (Maksimal ${state.walletBalance})")
+        val targetAsset = state.connectedAssets.find { it.id == state.selectedWithdrawAssetId }
+            ?: state.connectedAssets.firstOrNull()
+            ?: state.assets.first()
+
+        if (numericAmount > targetAsset.tokenNumeric) {
+            showMessage("Saldo ${targetAsset.name} tidak mencukupi (Tersedia ${targetAsset.tokenAmount})")
             return
         }
 
-        val targetAsset = state.assets.find { it.id == state.selectedWithdrawAssetId } ?: state.assets.first()
-        val newBalanceNum = (state.walletBalanceNumeric - numericAmount).coerceAtLeast(0.0)
-        val formattedBalance = formatHeadlineBalance(newBalanceNum)
-        val formattedWithdraw = formatCurrencyWithCents(numericAmount)
+        val updatedAssets = state.assets.map { item ->
+            if (item.id == targetAsset.id) {
+                item.copy(tokenNumeric = (item.tokenNumeric - numericAmount).coerceAtLeast(0.0))
+            } else {
+                item
+            }
+        }
+        val formattedWithdraw = formatHeadlineBalance(numericAmount)
 
         val newTx = WalletTransactionItem(
             id = "tx_${System.currentTimeMillis()}",
-            title = "Withdraw ${targetAsset.name}",
-            date = "Just now",
-            amount = "-$$formattedWithdraw",
+            title = "Keluar dari ${targetAsset.name}",
+            date = "Baru saja",
+            amount = "-$formattedWithdraw",
             isPositive = false,
             iconType = targetAsset.iconType,
             category = "WITHDRAW",
             status = "Berhasil",
-            referenceNote = "Tujuan: ${state.withdrawDestination}"
+            referenceNote = "${state.withdrawDestination} • ${targetAsset.name}"
         )
 
         val newNotif = TuaiNotificationItem(
             id = "notif_${System.currentTimeMillis()}",
-            title = "Penarikan Dana Berhasil",
-            message = "Withdraw $$formattedWithdraw dari ${targetAsset.name} ke ${state.withdrawDestination} berhasil diproses.",
+            title = "Mutasi Keluar ${targetAsset.name}",
+            message = "Pengeluaran/Transfer $formattedWithdraw (${state.withdrawDestination}) dari ${targetAsset.name} berhasil dicatat.",
             time = "Baru saja",
             isRead = false
         )
 
         _uiState.update { current ->
-            val next = current.copy(
-                walletBalanceNumeric = newBalanceNum,
-                walletBalance = formattedBalance,
-                transactions = listOf(newTx) + current.transactions,
-                notifications = listOf(newNotif) + current.notifications,
-                currentScreen = TuaiScreen.WALLET,
-                selectedBottomNav = 1,
-                withdrawAmount = "19,29.00",
-                lastSyncedLabel = "Baru saja • Tersinkron ke Firebase",
-                toastMessage = "Withdraw $${state.withdrawAmount} berhasil diproses!"
+            val next = syncAggregatedBalances(
+                current.copy(
+                    assets = updatedAssets,
+                    transactions = listOf(newTx) + current.transactions,
+                    notifications = listOf(newNotif) + current.notifications,
+                    currentScreen = TuaiScreen.WALLET,
+                    selectedBottomNav = 1,
+                    withdrawAmount = "150.000",
+                    toastMessage = "Transaksi $formattedWithdraw dari ${targetAsset.name} berhasil dicatat!"
+                )
             )
             repository.saveWalletState(next)
             next
@@ -604,7 +983,7 @@ class TuaiViewModel(
     }
 
     fun updateTopUpAmount(value: String) {
-        _uiState.update { it.copy(topUpAmountInput = value.filter { ch -> ch.isDigit() || ch == '.' }) }
+        _uiState.update { it.copy(topUpAmountInput = value.filter { ch -> ch.isDigit() }) }
     }
 
     fun updateTopUpMethod(method: String) {
@@ -619,75 +998,92 @@ class TuaiViewModel(
         val state = _uiState.value
         val amount = state.topUpAmountInput.toDoubleOrNull() ?: 0.0
         if (amount <= 0.0) {
-            showMessage("Masukkan nominal Top Up yang valid")
+            showMessage("Masukkan nominal pemasukan / top up yang valid")
             return
         }
-        val targetAsset = state.assets.find { it.id == state.topUpTargetAssetId } ?: state.assets.first()
-        val newBalanceNum = state.walletBalanceNumeric + amount
-        val formattedBalance = formatHeadlineBalance(newBalanceNum)
-        val formattedAmount = formatCurrencyWithCents(amount)
+        val targetAsset = state.assets.find { it.id == state.topUpTargetAssetId }
+            ?: state.connectedAssets.firstOrNull()
+            ?: state.assets.first()
+
+        val updatedAssets = state.assets.map { item ->
+            if (item.id == targetAsset.id) {
+                item.copy(
+                    tokenNumeric = item.tokenNumeric + amount,
+                    isConnected = true
+                )
+            } else {
+                item
+            }
+        }
+        val formattedAmount = formatHeadlineBalance(amount)
 
         val newTx = WalletTransactionItem(
             id = "tx_${System.currentTimeMillis()}",
-            title = "Top Up ${targetAsset.name}",
-            date = "Just now",
-            amount = "+$$formattedAmount",
+            title = "Saldo Masuk ke ${targetAsset.name}",
+            date = "Baru saja",
+            amount = "+$formattedAmount",
             isPositive = true,
             iconType = targetAsset.iconType,
             category = "RECEIVE",
             status = "Berhasil",
-            referenceNote = "Metode: ${state.topUpMethod}"
+            referenceNote = "Sumber: ${state.topUpMethod}"
         )
 
         val newNotif = TuaiNotificationItem(
             id = "notif_${System.currentTimeMillis()}",
-            title = "Top Up Saldo Berhasil",
-            message = "Dana sebesar +$$formattedAmount via ${state.topUpMethod} telah masuk ke dompet Anda.",
+            title = "Saldo ${targetAsset.name} Bertambah",
+            message = "Dana sebesar +$formattedAmount via ${state.topUpMethod} masuk ke ${targetAsset.name}.",
             time = "Baru saja",
             isRead = false
         )
 
         _uiState.update { current ->
-            val next = current.copy(
-                walletBalanceNumeric = newBalanceNum,
-                walletBalance = formattedBalance,
-                transactions = listOf(newTx) + current.transactions,
-                notifications = listOf(newNotif) + current.notifications,
-                activeModal = TuaiActiveModal.NONE,
-                lastSyncedLabel = "Baru saja • Tersinkron ke Firebase",
-                toastMessage = "Top Up +$$formattedAmount berhasil ditambahkan!"
+            val next = syncAggregatedBalances(
+                current.copy(
+                    assets = updatedAssets,
+                    transactions = listOf(newTx) + current.transactions,
+                    notifications = listOf(newNotif) + current.notifications,
+                    activeModal = TuaiActiveModal.NONE,
+                    toastMessage = "Saldo ${targetAsset.name} bertambah +$formattedAmount!"
+                )
             )
             repository.saveWalletState(next)
             next
         }
     }
 
-    fun simulateReceiveFunds(amountUsd: Double = 500.0) {
+    fun simulateReceiveFunds(amountIdr: Double = 500_000.0) {
         val state = _uiState.value
-        val newBalanceNum = state.walletBalanceNumeric + amountUsd
-        val formattedBalance = formatHeadlineBalance(newBalanceNum)
-        val formattedAmount = formatCurrencyWithCents(amountUsd)
+        val targetAsset = state.connectedAssets.firstOrNull() ?: state.assets.first()
+        val updatedAssets = state.assets.map { item ->
+            if (item.id == targetAsset.id) {
+                item.copy(tokenNumeric = item.tokenNumeric + amountIdr)
+            } else {
+                item
+            }
+        }
+        val formattedAmount = formatHeadlineBalance(amountIdr)
 
         val newTx = WalletTransactionItem(
             id = "tx_${System.currentTimeMillis()}",
-            title = "Received Ethereum",
-            date = "Just now",
-            amount = "+$$formattedAmount",
+            title = "Terima Dana di ${targetAsset.name}",
+            date = "Baru saja",
+            amount = "+$formattedAmount",
             isPositive = true,
-            iconType = AssetIconType.ETHEREUM,
+            iconType = targetAsset.iconType,
             category = "RECEIVE",
             status = "Berhasil",
-            referenceNote = "Transfer Masuk via QR Wallet #${state.walletId}"
+            referenceNote = "QRIS / Transfer Masuk ke ${targetAsset.name}"
         )
 
         _uiState.update { current ->
-            val next = current.copy(
-                walletBalanceNumeric = newBalanceNum,
-                walletBalance = formattedBalance,
-                transactions = listOf(newTx) + current.transactions,
-                activeModal = TuaiActiveModal.NONE,
-                lastSyncedLabel = "Baru saja • Tersinkron ke Firebase",
-                toastMessage = "Dana +$$formattedAmount berhasil diterima!"
+            val next = syncAggregatedBalances(
+                current.copy(
+                    assets = updatedAssets,
+                    transactions = listOf(newTx) + current.transactions,
+                    activeModal = TuaiActiveModal.NONE,
+                    toastMessage = "Dana +$formattedAmount diterima di ${targetAsset.name}!"
+                )
             )
             repository.saveWalletState(next)
             next
@@ -695,7 +1091,7 @@ class TuaiViewModel(
     }
 
     fun updateSwapAmount(value: String) {
-        _uiState.update { it.copy(swapAmountInput = value.filter { ch -> ch.isDigit() || ch == '.' }) }
+        _uiState.update { it.copy(swapAmountInput = value.filter { ch -> ch.isDigit() }) }
     }
 
     fun flipSwapAssets() {
@@ -707,63 +1103,142 @@ class TuaiViewModel(
         }
     }
 
+    fun prepareSwapFromWallet(fromAssetId: String) {
+        _uiState.update { state ->
+            val pool = state.connectedAssets.ifEmpty { state.assets }
+            val nextToId = if (state.swapToAssetId == fromAssetId) {
+                pool.firstOrNull { it.id != fromAssetId }?.id ?: "gopay"
+            } else {
+                state.swapToAssetId
+            }
+            state.copy(
+                swapFromAssetId = fromAssetId,
+                swapToAssetId = nextToId,
+                activeModal = TuaiActiveModal.SWAP_ASSET
+            )
+        }
+    }
+
+    fun prepareTopUpForWallet(targetAssetId: String) {
+        _uiState.update { state ->
+            state.copy(
+                topUpTargetAssetId = targetAssetId,
+                activeModal = TuaiActiveModal.TOP_UP
+            )
+        }
+    }
+
+    fun cycleSwapFromAsset() {
+        _uiState.update { state ->
+            val pool = state.connectedAssets.ifEmpty { state.assets }
+            val idx = pool.indexOfFirst { it.id == state.swapFromAssetId }
+            val nextAsset = pool[(idx + 1) % pool.size]
+            val nextToId = if (nextAsset.id == state.swapToAssetId) {
+                pool.firstOrNull { it.id != nextAsset.id }?.id ?: state.swapToAssetId
+            } else {
+                state.swapToAssetId
+            }
+            state.copy(
+                swapFromAssetId = nextAsset.id,
+                swapToAssetId = nextToId
+            )
+        }
+    }
+
+    fun cycleSwapToAsset() {
+        _uiState.update { state ->
+            val pool = state.connectedAssets.ifEmpty { state.assets }
+            val idx = pool.indexOfFirst { it.id == state.swapToAssetId }
+            val nextAsset = pool[(idx + 1) % pool.size]
+            val nextFromId = if (nextAsset.id == state.swapFromAssetId) {
+                pool.firstOrNull { it.id != nextAsset.id }?.id ?: state.swapFromAssetId
+            } else {
+                state.swapFromAssetId
+            }
+            state.copy(
+                swapToAssetId = nextAsset.id,
+                swapFromAssetId = nextFromId
+            )
+        }
+    }
+
     fun submitSwap() {
         val state = _uiState.value
-        val amountUsd = state.swapAmountInput.toDoubleOrNull() ?: 0.0
-        if (amountUsd <= 0.0) {
-            showMessage("Masukkan nominal Swap yang valid")
+        val amountIdr = state.swapAmountInput.toDoubleOrNull() ?: 0.0
+        if (amountIdr <= 0.0) {
+            showMessage("Masukkan nominal pindah dana yang valid")
             return
         }
         val fromAsset = state.assets.find { it.id == state.swapFromAssetId } ?: state.assets[0]
-        val toAsset = state.assets.find { it.id == state.swapToAssetId } ?: state.assets[2]
-        val formattedAmount = formatCurrencyWithCents(amountUsd)
+        val toAsset = state.assets.find { it.id == state.swapToAssetId } ?: state.assets[3]
+
+        if (fromAsset.id == toAsset.id) {
+            showMessage("Pilih dompet asal dan tujuan yang berbeda")
+            return
+        }
+        if (amountIdr > fromAsset.tokenNumeric) {
+            showMessage("Saldo ${fromAsset.name} tidak cukup (${fromAsset.tokenAmount})")
+            return
+        }
+
+        val updatedAssets = state.assets.map { item ->
+            when (item.id) {
+                fromAsset.id -> item.copy(tokenNumeric = (item.tokenNumeric - amountIdr).coerceAtLeast(0.0))
+                toAsset.id -> item.copy(tokenNumeric = item.tokenNumeric + amountIdr, isConnected = true)
+                else -> item
+            }
+        }
+        val formattedAmount = formatHeadlineBalance(amountIdr)
 
         val newTx = WalletTransactionItem(
             id = "tx_${System.currentTimeMillis()}",
-            title = "${fromAsset.symbol} → ${toAsset.symbol} Swap",
-            date = "Just now",
-            amount = "+$$formattedAmount",
+            title = "Pindah Dana: ${fromAsset.symbol} → ${toAsset.symbol}",
+            date = "Baru saja",
+            amount = formattedAmount,
             isPositive = true,
             iconType = toAsset.iconType,
             category = "SWAP",
             status = "Berhasil",
-            referenceNote = "Konversi Instan ${fromAsset.name} ke ${toAsset.name}"
+            referenceNote = "Alokasi Keuangan dari ${fromAsset.name} ke ${toAsset.name}"
         )
 
         val newNotif = TuaiNotificationItem(
             id = "notif_${System.currentTimeMillis()}",
-            title = "Swap Aset Berhasil",
-            message = "Berhasil menukar $$formattedAmount dari ${fromAsset.name} ke ${toAsset.name}.",
+            title = "Alokasi Dana Antar Wallet Berhasil",
+            message = "Dana $formattedAmount dipindahkan dari ${fromAsset.name} ke ${toAsset.name}.",
             time = "Baru saja",
             isRead = false
         )
 
         _uiState.update { current ->
-            val next = current.copy(
-                transactions = listOf(newTx) + current.transactions,
-                notifications = listOf(newNotif) + current.notifications,
-                activeModal = TuaiActiveModal.NONE,
-                selectedAssetTab = 1,
-                lastSyncedLabel = "Baru saja • Tersinkron ke Firebase",
-                toastMessage = "Swap $$formattedAmount (${fromAsset.symbol} → ${toAsset.symbol}) berhasil!"
+            val next = syncAggregatedBalances(
+                current.copy(
+                    assets = updatedAssets,
+                    transactions = listOf(newTx) + current.transactions,
+                    notifications = listOf(newNotif) + current.notifications,
+                    activeModal = TuaiActiveModal.NONE,
+                    toastMessage = "Berhasil memindahkan $formattedAmount (${fromAsset.name} → ${toAsset.name})!"
+                )
             )
             repository.saveWalletState(next)
             next
         }
     }
 
-    fun contributeToSavingsGoal(goalId: String, amountUsd: Double = 250.0) {
+    fun contributeToSavingsGoal(goalId: String, amountIdr: Double = 500_000.0) {
         _uiState.update { state ->
             val updatedGoals = state.savingsGoals.map { goal ->
                 if (goal.id == goalId) {
-                    goal.copy(currentUsd = (goal.currentUsd + amountUsd).coerceAtMost(goal.targetUsd))
+                    val nextCurrent = goal.currentUsd + amountIdr
+                    val nextTarget = if (nextCurrent > goal.targetUsd) nextCurrent + 2_500_000.0 else goal.targetUsd
+                    goal.copy(currentUsd = nextCurrent, targetUsd = nextTarget)
                 } else {
                     goal
                 }
             }
             val next = state.copy(
                 savingsGoals = updatedGoals,
-                toastMessage = "Berhasil menambah panen tabungan +$${amountUsd.toInt()}!"
+                toastMessage = "Alokasi pos keuangan bertambah +${formatHeadlineBalance(amountIdr)}!"
             )
             repository.saveWalletState(next)
             next
@@ -772,21 +1247,24 @@ class TuaiViewModel(
 
     fun syncFirebaseManual() {
         val current = _uiState.value
-        repository.saveWalletState(current)
+        val synced = syncAggregatedBalances(current)
+        repository.saveWalletState(synced)
         _uiState.update {
-            it.copy(
+            synced.copy(
                 isFirebaseSynced = true,
-                lastSyncedLabel = "Baru saja • Tersinkron ke Firebase Cloud",
-                toastMessage = "Data dompet berhasil disinkronkan ke Firebase!"
+                lastSyncedLabel = "Baru saja • ${synced.connectedPluginCount} Plugin Dompet & Bank Sinkron",
+                toastMessage = "Seluruh saldo GoPay, DANA, Mandiri, BRImo & BCA berhasil disinkronkan!"
             )
         }
     }
 
     fun resetDemoData() {
-        val fresh = TuaiUiState(
-            currentScreen = TuaiScreen.WALLET,
-            selectedBottomNav = 1,
-            toastMessage = "Data dompet dikembalikan ke posisi awal ($23,867)"
+        val fresh = syncAggregatedBalances(
+            TuaiUiState(
+                currentScreen = TuaiScreen.WALLET,
+                selectedBottomNav = 1,
+                toastMessage = "Data seluruh plugin dompet & bank dikembalikan ke posisi awal"
+            )
         )
         repository.saveWalletState(fresh)
         _uiState.value = fresh
@@ -814,34 +1292,124 @@ class TuaiViewModel(
     }
 
     companion object {
+        private val idLocale = Locale.forLanguageTag("id-ID")
+
         fun parseWithdrawAmount(raw: String): Double {
-            if (raw == "19,29.00") return 1929.00
-            val cleaned = raw.replace(",", "").replace("$", "").trim()
+            if (raw == "150.000") return 150_000.0
+            val cleaned = raw.filter { it.isDigit() }
             return cleaned.toDoubleOrNull() ?: 0.0
         }
 
         fun formatHeadlineBalance(amount: Double): String {
-            val nf = NumberFormat.getNumberInstance(Locale.US).apply {
-                maximumFractionDigits = if (amount % 1.0 == 0.0) 0 else 2
-                minimumFractionDigits = if (amount % 1.0 == 0.0) 0 else 2
+            val nf = NumberFormat.getNumberInstance(idLocale).apply {
+                maximumFractionDigits = 0
+                minimumFractionDigits = 0
             }
-            return "$${nf.format(amount)}"
+            return "Rp ${nf.format(amount.toLong())}"
+        }
+
+        fun formatCompactIdr(amount: Double): String {
+            return when {
+                amount >= 1_000_000_000.0 -> String.format(idLocale, "Rp %.2f M", amount / 1_000_000_000.0)
+                amount >= 1_000_000.0 -> String.format(idLocale, "Rp %.2f Jt", amount / 1_000_000.0)
+                amount >= 1_000.0 -> String.format(idLocale, "Rp %.0f Rb", amount / 1_000.0)
+                else -> formatHeadlineBalance(amount)
+            }
         }
 
         fun formatCurrencyWithCents(amount: Double): String {
-            val nf = NumberFormat.getNumberInstance(Locale.US).apply {
-                minimumFractionDigits = 2
-                maximumFractionDigits = 2
-            }
-            return nf.format(amount)
-        }
-
-        fun formatCurrencyPlain(amount: Double): String {
-            val nf = NumberFormat.getNumberInstance(Locale.US).apply {
+            val nf = NumberFormat.getNumberInstance(idLocale).apply {
                 minimumFractionDigits = 0
                 maximumFractionDigits = 0
             }
-            return nf.format(amount)
+            return nf.format(amount.toLong())
+        }
+
+        fun formatCurrencyPlain(amount: Double): String {
+            val nf = NumberFormat.getNumberInstance(idLocale).apply {
+                minimumFractionDigits = 0
+                maximumFractionDigits = 0
+            }
+            return nf.format(amount.toLong())
+        }
+
+        fun recalculateAssetsBreakdown(assets: List<CryptoAssetItem>): List<CryptoAssetItem> {
+            val totalConnected = assets.filter { it.isConnected }.sumOf { it.tokenNumeric }.coerceAtLeast(1.0)
+            return assets.map { item ->
+                val pct = if (item.isConnected) (item.tokenNumeric / totalConnected) * 100.0 else 0.0
+                val pctStr = String.format(idLocale, "%.1f%%", pct)
+                item.copy(
+                    tokenAmount = formatHeadlineBalance(item.tokenNumeric),
+                    percentageAndValue = if (item.isConnected) {
+                        "$pctStr • ${item.allocationRole}"
+                    } else {
+                        "Plugin Nonaktif • Ketuk untuk Hubungkan"
+                    },
+                    totalUsdValue = "${if (item.walletCategory == "BANK") "Bank" else "E-Wallet"} • ${item.accountNumber}"
+                )
+            }
+        }
+
+        fun syncAggregatedBalances(state: TuaiUiState): TuaiUiState {
+            val recalculatedAssets = recalculateAssetsBreakdown(state.assets)
+            val connected = recalculatedAssets.filter { it.isConnected }
+            val totalBalance = connected.sumOf { it.tokenNumeric }
+            val bankBalance = connected.filter { it.walletCategory == "BANK" }.sumOf { it.tokenNumeric }
+            val ewalletBalance = connected.filter { it.walletCategory == "E-WALLET" }.sumOf { it.tokenNumeric }
+
+            val totalSafe = totalBalance.coerceAtLeast(1.0)
+            val bankPct = ((bankBalance / totalSafe) * 100).toInt()
+            val ewalletPct = 100 - bankPct
+
+            val healthStatus = when {
+                totalBalance <= 0.0 -> "Perlu Top Up • Saldo Kosong"
+                ewalletBalance < 250_000.0 -> "Perhatian • Kas E-Wallet Menipis ($ewalletPct%)"
+                ewalletPct > 35 -> "Saran • Pindahkan Kelebihan E-Wallet ke Bank"
+                else -> "Sehat & Terkendali ($bankPct% Bank • $ewalletPct% E-Wallet)"
+            }
+
+            val advice = when {
+                ewalletBalance < 250_000.0 ->
+                    "Saldo E-Wallet (GoPay/DANA) tersisa ${formatHeadlineBalance(ewalletBalance)}. Disarankan pindah dana Rp 500rb dari BCA/Mandiri untuk kebutuhan harian."
+                ewalletPct > 35 ->
+                    "Sebanyak $ewalletPct% uangmu (${formatCompactIdr(ewalletBalance)}) ada di E-Wallet. Amankan sebagian ke rekening BCA atau Mandiri agar tidak boros."
+                else ->
+                    "Komposisi ideal! Kas harian di E-Wallet sebesar ${formatCompactIdr(ewalletBalance)} ($ewalletPct%) siap pakai, dan ${formatCompactIdr(bankBalance)} ($bankPct%) tersimpan aman di Bank."
+            }
+
+            // Keep Pos Kondisi Keuangan dynamically aligned with actual connected Bank & E-Wallet balances
+            val brimoBalance = connected.filter { it.id == "brimo" }.sumOf { it.tokenNumeric }
+            val mainSavingsBankBalance = (bankBalance - brimoBalance).coerceAtLeast(0.0)
+            val syncedGoals = state.savingsGoals.map { goal ->
+                when (goal.id) {
+                    "goal1" -> goal.copy(
+                        currentUsd = mainSavingsBankBalance,
+                        targetUsd = goal.targetUsd.coerceAtLeast(mainSavingsBankBalance)
+                    )
+                    "goal2" -> goal.copy(
+                        currentUsd = ewalletBalance,
+                        targetUsd = goal.targetUsd.coerceAtLeast(ewalletBalance)
+                    )
+                    "goal3" -> goal.copy(
+                        currentUsd = brimoBalance,
+                        targetUsd = goal.targetUsd.coerceAtLeast(brimoBalance)
+                    )
+                    else -> goal
+                }
+            }
+
+            return state.copy(
+                assets = recalculatedAssets,
+                walletBalanceNumeric = totalBalance,
+                walletBalance = formatHeadlineBalance(totalBalance),
+                bankBalanceNumeric = bankBalance,
+                ewalletBalanceNumeric = ewalletBalance,
+                connectedPluginCount = connected.size,
+                financialHealthStatus = healthStatus,
+                financialConditionAdvice = advice,
+                savingsGoals = syncedGoals,
+                lastSyncedLabel = "Aktif • ${connected.size} Plugin Terhubung (${formatCompactIdr(totalBalance)})"
+            )
         }
     }
 }

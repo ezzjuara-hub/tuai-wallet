@@ -5,7 +5,9 @@ import android.content.SharedPreferences
 import com.example.BuildConfig
 import com.example.viewmodel.AssetIconType
 import com.example.viewmodel.CryptoAssetItem
+import com.example.viewmodel.SavingsGoalItem
 import com.example.viewmodel.TuaiUiState
+import com.example.viewmodel.TuaiViewModel
 import com.example.viewmodel.WalletTransactionItem
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -16,25 +18,35 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Repository yang mengelola autentikasi dan penyimpanan data dompet Tuai
+ * Repository yang mengelola autentikasi dan penyimpanan data konektor multi-dompet Tuai
  * menggunakan Firebase Authentication & Cloud Firestore, dilengkapi fallback
  * real-time ke SharedPreferences lokal agar aplikasi 100% bebas error baik
- * ketika google-services.json tersedia maupun saat mode lokal/demo/offline.
+ * ketika google-services.json tersedia maupun saat mode lokal/offline.
  */
-class TuaiFirebaseRepository(private val context: Context? = null) {
+class TuaiFirebaseRepository(private var appContext: Context? = null) {
 
-    private val prefs: SharedPreferences? = runCatching {
-        context?.getSharedPreferences("tuai_wallet_store", Context.MODE_PRIVATE)
-    }.getOrNull()
+    fun attachContext(context: Context) {
+        if (appContext == null) {
+            appContext = context.applicationContext
+        }
+    }
+
+    private val prefs: SharedPreferences?
+        get() = runCatching {
+            appContext?.getSharedPreferences("tuai_multiwallet_v2_store", Context.MODE_PRIVATE)
+        }.getOrNull()
 
     val isFirebaseReady: Boolean
         get() = ensureFirebaseInitialized()
 
     private fun ensureFirebaseInitialized(): Boolean {
         return runCatching {
-            val ctx = context
+            val ctx = appContext
             if (ctx == null) {
-                return@runCatching runCatching { FirebaseApp.getInstance() != null }.getOrDefault(false)
+                return@runCatching runCatching {
+                    FirebaseApp.getInstance()
+                    true
+                }.getOrDefault(false)
             }
             if (FirebaseApp.getApps(ctx).isNotEmpty()) {
                 return@runCatching true
@@ -103,13 +115,13 @@ class TuaiFirebaseRepository(private val context: Context? = null) {
                         val uid = user?.uid ?: "user_${email.hashCode()}"
                         val displayName = user?.displayName?.takeIf { it.isNotBlank() }
                             ?: cleanInput.substringBefore("@").replaceFirstChar { it.uppercase() }
-                        onComplete(true, "Berhasil masuk ke Firebase Cloud", uid, displayName)
+                        onComplete(true, "Berhasil masuk & sinkron ke Firebase Cloud", uid, displayName)
                     }
                     .addOnFailureListener {
                         val localName = cleanInput.substringBefore("@")
                             .ifBlank { "Alex Pratama" }
                             .replaceFirstChar { ch -> ch.uppercase() }
-                        onComplete(true, "Masuk sebagai $localName (Sinkronisasi Aktif)", "local_$email", localName)
+                        onComplete(true, "Masuk sebagai $localName (Sinkronisasi Plugin Aktif)", "local_$email", localName)
                     }
             }.onFailure {
                 val localName = cleanInput.substringBefore("@").ifBlank { "Alex Pratama" }
@@ -201,12 +213,18 @@ class TuaiFirebaseRepository(private val context: Context? = null) {
                         JSONObject().apply {
                             put("id", asset.id)
                             put("name", asset.name)
+                            put("symbol", asset.symbol)
                             put("percentageAndValue", asset.percentageAndValue)
                             put("tokenAmount", asset.tokenAmount)
                             put("totalUsdValue", asset.totalUsdValue)
                             put("iconType", asset.iconType.name)
                             put("tokenNumeric", asset.tokenNumeric)
                             put("unitPriceUsd", asset.unitPriceUsd)
+                            put("walletCategory", asset.walletCategory)
+                            put("accountNumber", asset.accountNumber)
+                            put("allocationRole", asset.allocationRole)
+                            put("isConnected", asset.isConnected)
+                            put("packageName", asset.packageName)
                         }
                     )
                 }
@@ -229,6 +247,21 @@ class TuaiFirebaseRepository(private val context: Context? = null) {
                     )
                 }
                 put("transactions", txArr)
+
+                val goalsArr = JSONArray()
+                state.savingsGoals.forEach { goal ->
+                    goalsArr.put(
+                        JSONObject().apply {
+                            put("id", goal.id)
+                            put("title", goal.title)
+                            put("currentUsd", goal.currentUsd)
+                            put("targetUsd", goal.targetUsd)
+                            put("deadline", goal.deadline)
+                            put("linkedWalletsLabel", goal.linkedWalletsLabel)
+                        }
+                    )
+                }
+                put("savingsGoals", goalsArr)
             }
             prefs?.edit()?.putString("wallet_snapshot_${state.walletId}", root.toString())?.apply()
         }
@@ -247,12 +280,17 @@ class TuaiFirebaseRepository(private val context: Context? = null) {
                     mapOf(
                         "id" to asset.id,
                         "name" to asset.name,
+                        "symbol" to asset.symbol,
                         "percentageAndValue" to asset.percentageAndValue,
                         "tokenAmount" to asset.tokenAmount,
                         "totalUsdValue" to asset.totalUsdValue,
                         "iconType" to asset.iconType.name,
                         "tokenNumeric" to asset.tokenNumeric,
-                        "unitPriceUsd" to asset.unitPriceUsd
+                        "unitPriceUsd" to asset.unitPriceUsd,
+                        "walletCategory" to asset.walletCategory,
+                        "accountNumber" to asset.accountNumber,
+                        "allocationRole" to asset.allocationRole,
+                        "isConnected" to asset.isConnected
                     )
                 },
                 "transactions" to state.transactions.map { tx ->
@@ -273,7 +311,9 @@ class TuaiFirebaseRepository(private val context: Context? = null) {
                         "id" to goal.id,
                         "title" to goal.title,
                         "currentUsd" to goal.currentUsd,
-                        "targetUsd" to goal.targetUsd
+                        "targetUsd" to goal.targetUsd,
+                        "deadline" to goal.deadline,
+                        "linkedWalletsLabel" to goal.linkedWalletsLabel
                     )
                 }
             )
@@ -294,18 +334,25 @@ class TuaiFirebaseRepository(private val context: Context? = null) {
             if (assetsArr != null) {
                 for (i in 0 until assetsArr.length()) {
                     val item = assetsArr.getJSONObject(i)
+                    val iconType = runCatching {
+                        AssetIconType.valueOf(item.optString("iconType", "BCA"))
+                    }.getOrDefault(AssetIconType.BCA)
                     loadedAssets.add(
                         CryptoAssetItem(
-                            id = item.optString("id", "eth"),
-                            name = item.optString("name", "Ethereum"),
-                            percentageAndValue = item.optString("percentageAndValue", "28,74% ($28,015)"),
-                            tokenAmount = item.optString("tokenAmount", "79.006 ETH"),
-                            totalUsdValue = item.optString("totalUsdValue", "$100,000.00"),
-                            iconType = runCatching {
-                                AssetIconType.valueOf(item.optString("iconType", "ETHEREUM"))
-                            }.getOrDefault(AssetIconType.ETHEREUM),
-                            tokenNumeric = item.optDouble("tokenNumeric", 79.006),
-                            unitPriceUsd = item.optDouble("unitPriceUsd", 1265.72)
+                            id = item.optString("id", "bca"),
+                            name = item.optString("name", "BCA (myBCA)"),
+                            symbol = item.optString("symbol", iconType.name),
+                            percentageAndValue = item.optString("percentageAndValue", "49,1% • Tabungan Utama"),
+                            tokenAmount = item.optString("tokenAmount", "Rp 14.500.000"),
+                            totalUsdValue = item.optString("totalUsdValue", "Bank • Rek 8820-1928-31"),
+                            iconType = iconType,
+                            tokenNumeric = item.optDouble("tokenNumeric", 14_500_000.0),
+                            unitPriceUsd = item.optDouble("unitPriceUsd", 1.0),
+                            walletCategory = item.optString("walletCategory", "BANK"),
+                            accountNumber = item.optString("accountNumber", "8820-1928-31"),
+                            allocationRole = item.optString("allocationRole", "Tabungan & Pos Utama"),
+                            isConnected = item.optBoolean("isConnected", true),
+                            packageName = item.optString("packageName", "")
                         )
                     )
                 }
@@ -319,33 +366,52 @@ class TuaiFirebaseRepository(private val context: Context? = null) {
                     loadedTx.add(
                         WalletTransactionItem(
                             id = item.optString("id", "tx_$i"),
-                            title = item.optString("title", "Transaction"),
-                            date = item.optString("date", "Today"),
-                            amount = item.optString("amount", "$0.00"),
+                            title = item.optString("title", "Mutasi Dompet"),
+                            date = item.optString("date", "Hari ini"),
+                            amount = item.optString("amount", "Rp 0"),
                             isPositive = item.optBoolean("isPositive", true),
                             iconType = runCatching {
-                                AssetIconType.valueOf(item.optString("iconType", "ETHEREUM"))
-                            }.getOrDefault(AssetIconType.ETHEREUM),
+                                AssetIconType.valueOf(item.optString("iconType", "GOPAY"))
+                            }.getOrDefault(AssetIconType.GOPAY),
                             category = item.optString("category", "TRANSFER"),
                             status = item.optString("status", "Berhasil"),
-                            referenceNote = item.optString("referenceNote", "Tuai Cloud Verified")
+                            referenceNote = item.optString("referenceNote", "Sinkronisasi Plugin Tuai")
                         )
                     )
                 }
             }
 
-            base.copy(
-                walletBalanceNumeric = obj.optDouble("walletBalanceNumeric", base.walletBalanceNumeric),
-                walletBalance = obj.optString("walletBalance", base.walletBalance),
-                walletId = obj.optString("walletId", base.walletId),
-                userName = obj.optString("userName", base.userName),
-                userEmail = obj.optString("userEmail", base.userEmail),
-                isWithdrawStarred = obj.optBoolean("isWithdrawStarred", base.isWithdrawStarred),
-                isBalanceHidden = obj.optBoolean("isBalanceHidden", base.isBalanceHidden),
-                biometricEnabled = obj.optBoolean("biometricEnabled", base.biometricEnabled),
-                notificationsEnabled = obj.optBoolean("notificationsEnabled", base.notificationsEnabled),
-                assets = if (loadedAssets.isNotEmpty()) loadedAssets else base.assets,
-                transactions = if (loadedTx.isNotEmpty()) loadedTx else base.transactions
+            val loadedGoals = mutableListOf<SavingsGoalItem>()
+            val goalsArr = obj.optJSONArray("savingsGoals")
+            if (goalsArr != null) {
+                for (i in 0 until goalsArr.length()) {
+                    val item = goalsArr.getJSONObject(i)
+                    loadedGoals.add(
+                        SavingsGoalItem(
+                            id = item.optString("id", "goal_$i"),
+                            title = item.optString("title", "Pos Keuangan"),
+                            currentUsd = item.optDouble("currentUsd", 0.0),
+                            targetUsd = item.optDouble("targetUsd", 10_000_000.0),
+                            deadline = item.optString("deadline", "Aktif"),
+                            linkedWalletsLabel = item.optString("linkedWalletsLabel", "Dompet Terhubung")
+                        )
+                    )
+                }
+            }
+
+            TuaiViewModel.syncAggregatedBalances(
+                base.copy(
+                    walletId = obj.optString("walletId", base.walletId),
+                    userName = obj.optString("userName", base.userName),
+                    userEmail = obj.optString("userEmail", base.userEmail),
+                    isWithdrawStarred = obj.optBoolean("isWithdrawStarred", base.isWithdrawStarred),
+                    isBalanceHidden = obj.optBoolean("isBalanceHidden", base.isBalanceHidden),
+                    biometricEnabled = obj.optBoolean("biometricEnabled", base.biometricEnabled),
+                    notificationsEnabled = obj.optBoolean("notificationsEnabled", base.notificationsEnabled),
+                    assets = if (loadedAssets.isNotEmpty()) loadedAssets else base.assets,
+                    transactions = if (loadedTx.isNotEmpty()) loadedTx else base.transactions,
+                    savingsGoals = if (loadedGoals.isNotEmpty()) loadedGoals else base.savingsGoals
+                )
             )
         }.getOrNull()
     }

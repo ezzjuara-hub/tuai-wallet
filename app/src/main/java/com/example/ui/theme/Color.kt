@@ -31,7 +31,17 @@ val TuaiSocialBtnBg = Color(0xFFF5EFE4)
 val TuaiSocialBtnBorder = Color(0xFFE4D9C8)
 val TuaiDividerLine = Color(0xFFE3D8C6)
 
-// Crypto Asset Brand Colors
+// Indonesian Wallet & Bank Plugin Brand Colors
+val TuaiBcaBlue = Color(0xFF0060AF)
+val TuaiMandiriNavy = Color(0xFF003D79)
+val TuaiBrimoBlue = Color(0xFF00529C)
+val TuaiGopayCyan = Color(0xFF00AED6)
+val TuaiDanaBlue = Color(0xFF118EEA)
+val TuaiOvoPurple = Color(0xFF4C3494)
+val TuaiShopeeOrange = Color(0xFFEE4D2D)
+val TuaiSeabankOrange = Color(0xFFF37021)
+
+// Legacy Crypto Colors
 val TuaiEthOrange = Color(0xFFD05B33)
 val TuaiBnbYellow = Color(0xFFF0B90B)
 val TuaiUsdtGreen = Color(0xFF6E8559)

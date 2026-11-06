@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -42,46 +43,43 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.components.ActionArrowDownLeftIcon
 import com.example.ui.components.ActionArrowUpRightIcon
-import com.example.ui.components.ActionPlusIcon
+import com.example.ui.components.ActionPluginConnectorIcon
 import com.example.ui.components.ActionSwapCircularIcon
-import com.example.ui.components.BinanceDiamondIcon
 import com.example.ui.components.CopyWalletIdIcon
-import com.example.ui.components.EthereumCrystalIcon
 import com.example.ui.components.NavHomeSmileIcon
 import com.example.ui.components.NavPieChartIcon
 import com.example.ui.components.NavSettingsCogIcon
 import com.example.ui.components.NavWalletFilledIcon
 import com.example.ui.components.NotificationBellWithDotIcon
-import com.example.ui.components.TetherSymbolIcon
 import com.example.ui.components.TuaiChartTabContent
 import com.example.ui.components.TuaiHomeTabContent
 import com.example.ui.components.TuaiSettingsTabContent
+import com.example.ui.components.WalletProviderBadge
 import com.example.ui.theme.PlusJakartaSans
 import com.example.ui.theme.TuaiBalanceCream
 import com.example.ui.theme.TuaiBellCircleBg
-import com.example.ui.theme.TuaiBnbYellow
-import com.example.ui.theme.TuaiEthOrange
 import com.example.ui.theme.TuaiGoldAccent
 import com.example.ui.theme.TuaiTerracotta
 import com.example.ui.theme.TuaiTextDark
 import com.example.ui.theme.TuaiTextMuted
-import com.example.ui.theme.TuaiUsdtGreen
 import com.example.ui.theme.TuaiWalletIdText
-import com.example.viewmodel.AssetIconType
 import com.example.viewmodel.CryptoAssetItem
 import com.example.viewmodel.TuaiActiveModal
 import com.example.viewmodel.TuaiUiState
+import com.example.viewmodel.TuaiViewModel
 import com.example.viewmodel.WalletTransactionItem
 
 @Composable
@@ -97,8 +95,10 @@ fun WalletScreen(
     onAssetClick: (CryptoAssetItem) -> Unit = { onNavigateToWithdraw() },
     onTransactionClick: (WalletTransactionItem) -> Unit = { onNavigateToWithdraw() },
     onSelectTxFilter: (String) -> Unit = {},
+    onSelectWalletCategoryFilter: (String) -> Unit = {},
     onSelectChartTimeframe: (String) -> Unit = {},
     onContributeGoal: (String) -> Unit = {},
+    onTogglePlugin: (String) -> Unit = {},
     onTogglePrivacy: () -> Unit = {},
     onToggleBiometric: () -> Unit = {},
     onToggleNotifications: () -> Unit = {},
@@ -106,7 +106,7 @@ fun WalletScreen(
     onResetData: () -> Unit = {}
 ) {
     BackHandler(onBack = onBackToLogin)
-    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Box(
         modifier = modifier
@@ -127,27 +127,35 @@ fun WalletScreen(
                     .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Top Bar: "Wallet" + Notification Bell + Profile Avatar
+                // Top Bar: "Dompet Terhubung" + Notification Bell + Profile Avatar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.wallet_title),
-                        fontFamily = PlusJakartaSans,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 20.sp,
-                        color = Color.White
-                    )
+                    Column {
+                        Text(
+                            text = stringResource(R.string.wallet_title),
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 19.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Total Isi Uang dari ${uiState.connectedPluginCount} Dompet & Bank",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 11.5.sp,
+                            color = TuaiWalletIdText
+                        )
+                    }
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Cream Notification Bell Button
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
@@ -165,7 +173,6 @@ fun WalletScreen(
                             )
                         }
 
-                        // Circular User Profile Photo
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
@@ -189,16 +196,16 @@ fun WalletScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Large Balance Text: "$23,867" (supports tap to toggle privacy mask)
+                // Large Total Aggregated Balance Text (in Rupiah)
                 Text(
-                    text = if (uiState.isBalanceHidden) "$••••••" else uiState.walletBalance,
+                    text = if (uiState.isBalanceHidden) "Rp ••••••••" else uiState.walletBalance,
                     fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 50.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 36.sp,
                     color = TuaiBalanceCream,
-                    letterSpacing = (-1).sp,
+                    letterSpacing = (-0.8).sp,
                     modifier = Modifier
                         .clickable { onTogglePrivacy() }
                         .testTag("wallet_balance_text")
@@ -206,35 +213,61 @@ fun WalletScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
+                // Bank vs E-Wallet Breakdown Pill
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFFB94A22))
+                        .clickable { onOpenModal(TuaiActiveModal.PLUGIN_MANAGER) }
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .testTag("wallet_breakdown_pill")
+                ) {
+                    Text(
+                        text = if (uiState.isBalanceHidden) {
+                            "${uiState.connectedPluginCount} Plugin Aktif • Ketuk untuk kelola"
+                        } else {
+                            "Bank: ${TuaiViewModel.formatCompactIdr(uiState.bankBalanceNumeric)} • E-Wallet: ${TuaiViewModel.formatCompactIdr(uiState.ewalletBalanceNumeric)}"
+                        },
+                        fontFamily = PlusJakartaSans,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.5.sp,
+                        color = TuaiBalanceCream
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
                 // Wallet ID + Copy Icon Row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .clickable {
-                            clipboardManager.setText(AnnotatedString(uiState.walletId))
-                            onShowMessage("Wallet ID ${uiState.walletId} disalin")
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            clipboard?.setPrimaryClip(ClipData.newPlainText("Tuai Wallet ID", uiState.walletId))
+                            onShowMessage("ID Konektor Tuai ${uiState.walletId} disalin")
                         }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                         .testTag("copy_wallet_id_button")
                 ) {
                     Text(
                         text = "Wallet id: ${uiState.walletId}",
                         fontFamily = PlusJakartaSans,
                         fontWeight = FontWeight.Normal,
-                        fontSize = 12.5.sp,
+                        fontSize = 12.sp,
                         color = TuaiWalletIdText
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     CopyWalletIdIcon(
                         tint = TuaiWalletIdText,
-                        size = 14.dp
+                        size = 13.dp
                     )
                 }
 
-                Spacer(modifier = Modifier.height(26.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // 4 Circular Golden Action Buttons: Receive (↙), Withdraw (↗), Swap (⇄), Add (+)
+                // 4 Circular Golden Action Buttons with clear labels:
+                // 1. Terima / Top Up, 2. Catat Keluar, 3. Pindah Dana, 4. Plugin Hub
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -243,13 +276,15 @@ fun WalletScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     WalletActionCircleButton(
+                        label = "Isi Saldo",
                         testTag = "action_receive_button",
-                        onClick = { onOpenModal(TuaiActiveModal.RECEIVE_QR) }
+                        onClick = { onOpenModal(TuaiActiveModal.TOP_UP) }
                     ) {
                         ActionArrowDownLeftIcon(size = 20.dp)
                     }
 
                     WalletActionCircleButton(
+                        label = "Catat Keluar",
                         testTag = "action_withdraw_button",
                         onClick = onNavigateToWithdraw
                     ) {
@@ -257,6 +292,7 @@ fun WalletScreen(
                     }
 
                     WalletActionCircleButton(
+                        label = "Pindah Dana",
                         testTag = "action_swap_button",
                         onClick = { onOpenModal(TuaiActiveModal.SWAP_ASSET) }
                     ) {
@@ -264,14 +300,15 @@ fun WalletScreen(
                     }
 
                     WalletActionCircleButton(
+                        label = "Plugin (${uiState.connectedPluginCount})",
                         testTag = "action_add_button",
-                        onClick = { onOpenModal(TuaiActiveModal.TOP_UP) }
+                        onClick = { onOpenModal(TuaiActiveModal.PLUGIN_MANAGER) }
                     ) {
-                        ActionPlusIcon(size = 20.dp)
+                        ActionPluginConnectorIcon(size = 20.dp)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(26.dp))
+                Spacer(modifier = Modifier.height(18.dp))
             }
 
             // Custom Asymmetric Folder-Tab Sheet + White Content Area
@@ -280,14 +317,12 @@ fun WalletScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                // Custom Canvas drawing the exact S-curved folder tab & white card body
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val w = size.width
                     val h = size.height
                     val tabHeight = 50.dp.toPx()
                     val topCorner = 26.dp.toPx()
 
-                    // Darker recessed background tab on the right ("My Transaction" background)
                     drawRoundRect(
                         color = Color(0xFFC2512A),
                         topLeft = Offset(w * 0.36f, 4.dp.toPx()),
@@ -295,7 +330,6 @@ fun WalletScreen(
                         cornerRadius = CornerRadius(topCorner, topCorner)
                     )
 
-                    // White Folder-Tab Sheet Path matching the middle phone in reference image
                     val sheetPath = Path().apply {
                         moveTo(0f, h)
                         lineTo(0f, topCorner)
@@ -330,7 +364,7 @@ fun WalletScreen(
                 }
 
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Tab Labels Row ("My Assets" | "My Transaction")
+                    // Tab Labels Row ("Dompet & Bank" | "Mutasi Gabungan")
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -396,9 +430,9 @@ fun WalletScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    // Content switches based on selectedBottomNav (0=Home, 1=Wallet, 2=Chart, 3=Settings)
+                    // Content switches based on selectedBottomNav (0=Kondisi, 1=Dompet, 2=Analitik, 3=Plugin)
                     when (uiState.selectedBottomNav) {
                         0 -> {
                             TuaiHomeTabContent(
@@ -424,6 +458,9 @@ fun WalletScreen(
                         3 -> {
                             TuaiSettingsTabContent(
                                 uiState = uiState,
+                                onTogglePlugin = onTogglePlugin,
+                                onOpenPluginModal = { onOpenModal(TuaiActiveModal.PLUGIN_MANAGER) },
+                                onEditWalletAsset = onAssetClick,
                                 onTogglePrivacy = onTogglePrivacy,
                                 onToggleBiometric = onToggleBiometric,
                                 onToggleNotifications = onToggleNotifications,
@@ -435,8 +472,74 @@ fun WalletScreen(
                         }
 
                         else -> {
-                            // Default Wallet View (My Assets / My Transaction)
+                            // Default Wallet View (Dompet & Bank / Mutasi Gabungan)
                             if (uiState.selectedAssetTab == 0) {
+                                val displayedWallets = remember(
+                                    uiState.assets,
+                                    uiState.selectedWalletCategoryFilter
+                                ) {
+                                    val connected = uiState.assets.filter { it.isConnected }
+                                    when (uiState.selectedWalletCategoryFilter) {
+                                        "BANK" -> connected.filter { it.walletCategory == "BANK" }
+                                        "E-WALLET" -> connected.filter { it.walletCategory == "E-WALLET" }
+                                        else -> connected
+                                    }
+                                }
+
+                                // Filter Chips: Semua | Bank (BCA/Mandiri/BRImo) | E-Wallet (GoPay/DANA) | + Plugin
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    listOf(
+                                        "ALL" to "Semua (${uiState.connectedAssets.size})",
+                                        "BANK" to "Bank (${uiState.connectedAssets.count { it.walletCategory == "BANK" }})",
+                                        "E-WALLET" to "E-Wallet (${uiState.connectedAssets.count { it.walletCategory == "E-WALLET" }})"
+                                    ).forEach { (key, label) ->
+                                        val selected = uiState.selectedWalletCategoryFilter == key
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(50))
+                                                .background(
+                                                    if (selected) TuaiTerracotta else Color(0xFFFAF3E8)
+                                                )
+                                                .clickable { onSelectWalletCategoryFilter(key) }
+                                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                fontFamily = PlusJakartaSans,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.sp,
+                                                color = if (selected) Color.White else TuaiTextDark
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.weight(1f))
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(TuaiGoldAccent.copy(alpha = 0.35f))
+                                            .border(1.dp, TuaiTerracotta.copy(alpha = 0.4f), RoundedCornerShape(50))
+                                            .clickable { onOpenModal(TuaiActiveModal.PLUGIN_MANAGER) }
+                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                            .testTag("open_plugin_hub_chip")
+                                    ) {
+                                        Text(
+                                            text = "+ Plugin",
+                                            fontFamily = PlusJakartaSans,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = TuaiTerracotta
+                                        )
+                                    }
+                                }
+
                                 LazyColumn(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -444,17 +547,61 @@ fun WalletScreen(
                                         .padding(horizontal = 24.dp)
                                 ) {
                                     itemsIndexed(
-                                        items = uiState.assets,
+                                        items = displayedWallets,
                                         key = { _, item -> item.id }
                                     ) { index, asset ->
                                         AssetListRow(
                                             asset = asset,
+                                            isBalanceHidden = uiState.isBalanceHidden,
                                             onClick = { onAssetClick(asset) }
                                         )
-                                        if (index < uiState.assets.lastIndex) {
+                                        if (index < displayedWallets.lastIndex) {
                                             HorizontalDivider(
                                                 thickness = 1.dp,
                                                 color = Color(0xFFF5F1EC)
+                                            )
+                                        }
+                                    }
+
+                                    // Footer CTA to connect more wallets (OVO, ShopeePay, SeaBank, etc.)
+                                    item {
+                                        val disconnectedCount = uiState.assets.count { !it.isConnected }
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 12.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(Color(0xFFFAF3E8))
+                                                .clickable { onOpenModal(TuaiActiveModal.PLUGIN_MANAGER) }
+                                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Hubungkan Dompet & Bank Lainnya",
+                                                    fontFamily = PlusJakartaSans,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp,
+                                                    color = TuaiTextDark
+                                                )
+                                                Text(
+                                                    text = if (disconnectedCount > 0) {
+                                                        "$disconnectedCount plugin belum aktif (OVO, ShopeePay, SeaBank, dll)"
+                                                    } else {
+                                                        "Tambah plugin kustom (BNI, BSI, Jago, LinkAja)"
+                                                    },
+                                                    fontFamily = PlusJakartaSans,
+                                                    fontSize = 11.5.sp,
+                                                    color = TuaiTextMuted
+                                                )
+                                            }
+                                            Text(
+                                                text = "Kelola →",
+                                                fontFamily = PlusJakartaSans,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.5.sp,
+                                                color = TuaiTerracotta
                                             )
                                         }
                                     }
@@ -482,7 +629,7 @@ fun WalletScreen(
                                         "ALL" to "Semua",
                                         "IN" to "Masuk",
                                         "OUT" to "Keluar",
-                                        "SWAP" to "Swap"
+                                        "SWAP" to "Alokasi/Pindah"
                                     ).forEach { (key, label) ->
                                         val selected = uiState.selectedTxFilter == key
                                         Box(
@@ -533,7 +680,7 @@ fun WalletScreen(
                 }
             }
 
-            // Bottom Navigation Bar (Home, Wallet, Chart, Settings)
+            // Bottom Navigation Bar (Kondisi, Dompet, Analitik, Plugin)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
@@ -650,59 +797,58 @@ fun WalletScreen(
 
 @Composable
 private fun WalletActionCircleButton(
+    label: String,
     testTag: String,
     onClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .size(60.dp)
-            .clip(CircleShape)
-            .background(TuaiGoldAccent)
-            .clickable(onClick = onClick)
-            .testTag(testTag),
-        contentAlignment = Alignment.Center
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        content()
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(TuaiGoldAccent)
+                .clickable(onClick = onClick)
+                .testTag(testTag),
+            contentAlignment = Alignment.Center
+        ) {
+            content()
+        }
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            text = label,
+            fontFamily = PlusJakartaSans,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            color = TuaiBalanceCream
+        )
     }
 }
 
 @Composable
 private fun AssetListRow(
     asset: CryptoAssetItem,
+    isBalanceHidden: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 15.dp)
+            .padding(vertical = 13.dp)
             .testTag("asset_row_${asset.id}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Colored Circle + Crypto Vector Emblem
-        val circleBg = when (asset.iconType) {
-            AssetIconType.ETHEREUM -> TuaiEthOrange
-            AssetIconType.BINANCE -> TuaiBnbYellow
-            AssetIconType.TETHER -> TuaiUsdtGreen
-        }
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(CircleShape)
-                .background(circleBg),
-            contentAlignment = Alignment.Center
-        ) {
-            when (asset.iconType) {
-                AssetIconType.ETHEREUM -> EthereumCrystalIcon(size = 24.dp)
-                AssetIconType.BINANCE -> BinanceDiamondIcon(size = 24.dp)
-                AssetIconType.TETHER -> TetherSymbolIcon(size = 24.dp)
-            }
-        }
+        WalletProviderBadge(
+            iconType = asset.iconType,
+            size = 46.dp
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        // Asset Name & Percentage
+        // Provider Name & Percentage + Financial Allocation Role
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = asset.name,
@@ -716,17 +862,17 @@ private fun AssetListRow(
                 text = asset.percentageAndValue,
                 fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Normal,
-                fontSize = 12.5.sp,
+                fontSize = 12.sp,
                 color = TuaiTextMuted
             )
         }
 
-        // Token Amount & USD Value
+        // Balance in Rupiah & Account Info
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = asset.tokenAmount,
+                text = if (isBalanceHidden) "Rp •••••••" else asset.tokenAmount,
                 fontFamily = PlusJakartaSans,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 14.5.sp,
                 color = TuaiTextDark
             )
@@ -735,7 +881,7 @@ private fun AssetListRow(
                 text = asset.totalUsdValue,
                 fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Normal,
-                fontSize = 12.5.sp,
+                fontSize = 11.5.sp,
                 color = TuaiTextMuted
             )
         }
@@ -751,27 +897,13 @@ private fun TransactionListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 15.dp),
+            .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val circleBg = when (tx.iconType) {
-            AssetIconType.ETHEREUM -> TuaiEthOrange
-            AssetIconType.BINANCE -> TuaiBnbYellow
-            AssetIconType.TETHER -> TuaiUsdtGreen
-        }
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(CircleShape)
-                .background(circleBg),
-            contentAlignment = Alignment.Center
-        ) {
-            when (tx.iconType) {
-                AssetIconType.ETHEREUM -> EthereumCrystalIcon(size = 24.dp)
-                AssetIconType.BINANCE -> BinanceDiamondIcon(size = 24.dp)
-                AssetIconType.TETHER -> TetherSymbolIcon(size = 24.dp)
-            }
-        }
+        WalletProviderBadge(
+            iconType = tx.iconType,
+            size = 44.dp
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 
@@ -780,15 +912,15 @@ private fun TransactionListRow(
                 text = tx.title,
                 fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
+                fontSize = 14.5.sp,
                 color = TuaiTextDark
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(
-                text = tx.date,
+                text = "${tx.date} • ${tx.referenceNote}",
                 fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Normal,
-                fontSize = 12.5.sp,
+                fontSize = 11.5.sp,
                 color = TuaiTextMuted
             )
         }
@@ -796,8 +928,8 @@ private fun TransactionListRow(
         Text(
             text = tx.amount,
             fontFamily = PlusJakartaSans,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.5.sp,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
             color = if (tx.isPositive) Color(0xFF4C8C4A) else TuaiTerracotta
         )
     }

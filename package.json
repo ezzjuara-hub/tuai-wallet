@@ -1,14 +1,14 @@
 {
   "name": "tuai-wallet",
   "private": true,
-  "version": "1.0.0",
-  "description": "Tuai - Kelola & Tuai Hasil Finansialmu (Digital Crypto & Financial Wallet with Firebase)",
+  "version": "2.0.0",
+  "description": "Tuai - Konektor Multi-Wallet & Pengatur Kondisi Keuangan (BCA, Mandiri, BRImo, GoPay, DANA, OVO, ShopeePay, SeaBank)",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "tsc -b && vite build",
     "lint": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
     "firebase": "^11.4.0",

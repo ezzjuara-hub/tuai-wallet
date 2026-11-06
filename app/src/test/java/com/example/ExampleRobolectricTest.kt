@@ -30,7 +30,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `verify all three Tuai screens render and navigate accurately`() {
+    fun `verify all three Tuai screens and multi-wallet plugins render and navigate accurately`() {
         composeTestRule.setContent {
             MyApplicationTheme {
                 TuaiApp()
@@ -39,40 +39,35 @@ class ExampleRobolectricTest {
 
         // 1. Verify Screen 1: Login ("Masuk ke Akun")
         composeTestRule.onNodeWithText("Tuai").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Kelola & Tuai Hasil Finansialmu").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Konektor Dompet, Bank & Kendali Keuanganmu").assertIsDisplayed()
         composeTestRule.onNodeWithText("Masuk ke Akun").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Silakan masuk untuk melanjutkan").assertIsDisplayed()
         composeTestRule.onNodeWithText("Email atau Nomor HP").assertIsDisplayed()
         composeTestRule.onNodeWithText("Kata Sandi").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Lupa Kata Sandi?").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Atau masuk dengan").assertIsDisplayed()
 
-        // Navigate to Screen 2: Wallet
+        // Navigate to Screen 2: Connected Wallets Dashboard
         composeTestRule.onNodeWithTag("login_submit_button").performClick()
         composeTestRule.waitForIdle()
 
-        // 2. Verify Screen 2: Wallet
+        // 2. Verify Screen 2: Aggregated Wallets & Banks (BCA, Mandiri, BRImo, GoPay, DANA)
         composeTestRule.onNodeWithTag("wallet_balance_text").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Wallet id: 2678900085").assertIsDisplayed()
-        composeTestRule.onNodeWithText("My Assets").assertIsDisplayed()
-        composeTestRule.onNodeWithText("My Transaction").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Ethereum").assertIsDisplayed()
-        composeTestRule.onNodeWithText("28,74% ($28,015)").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Binance").assertIsDisplayed()
-        composeTestRule.onNodeWithText("107.70 BNB").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Tether usd").assertIsDisplayed()
-        composeTestRule.onNodeWithText("29.74% ($26,015)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Rp 29.550.000").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Dompet & Bank").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Mutasi Gabungan").assertIsDisplayed()
+        composeTestRule.onNodeWithText("BCA (myBCA)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Livin' by Mandiri").assertIsDisplayed()
+        composeTestRule.onNodeWithText("BRImo (Bank BRI)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("GoPay").assertIsDisplayed()
+        composeTestRule.onNodeWithText("DANA").assertIsDisplayed()
 
-        // Navigate to Screen 3: Withdraw Money
+        // Navigate to Screen 3: Catat Keluar / Transfer
         composeTestRule.onNodeWithTag("action_withdraw_button").performClick()
         composeTestRule.waitForIdle()
 
-        // 3. Verify Screen 3: Withdraw Money
-        composeTestRule.onNodeWithText("Withdraw Money").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Exchange").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Current Wallet Balance").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Withdraw Amount").assertIsDisplayed()
-        composeTestRule.onNodeWithText("$19,29.00").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Swipe to Withdraw").assertIsDisplayed()
+        // 3. Verify Screen 3: Catat Keluar / Transfer
+        composeTestRule.onNodeWithText("Catat Keluar / Transfer").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Sumber Dana").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Nominal Pengeluaran / Transfer").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Rp 150.000").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Geser untuk Konfirmasi").assertIsDisplayed()
     }
 }

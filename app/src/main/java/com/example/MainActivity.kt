@@ -1,5 +1,7 @@
 package com.example
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -23,8 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -68,7 +69,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.attachContext(context)
+    }
 
     LaunchedEffect(uiState.toastMessage) {
         if (uiState.toastMessage != null) {
@@ -117,8 +122,10 @@ fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
                         onAssetClick = viewModel::openAssetDetail,
                         onTransactionClick = viewModel::openTransactionDetail,
                         onSelectTxFilter = viewModel::selectTxFilter,
+                        onSelectWalletCategoryFilter = viewModel::selectWalletCategoryFilter,
                         onSelectChartTimeframe = viewModel::selectChartTimeframe,
                         onContributeGoal = viewModel::contributeToSavingsGoal,
+                        onTogglePlugin = viewModel::togglePluginConnection,
                         onTogglePrivacy = viewModel::toggleBalancePrivacy,
                         onToggleBiometric = viewModel::toggleBiometricSetting,
                         onToggleNotifications = viewModel::toggleNotificationsSetting,
@@ -139,7 +146,8 @@ fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
                         onExchangeCardClick = {
                             viewModel.openModal(TuaiActiveModal.WITHDRAW_EXCHANGE_PICKER)
                         },
-                        onPlusPresetClick = viewModel::cycleQuickWithdrawAmount
+                        onPlusPresetClick = viewModel::cycleQuickWithdrawAmount,
+                        onSelectWithdrawDestination = viewModel::updateWithdrawDestination
                     )
                 }
             }
@@ -150,7 +158,10 @@ fun TuaiApp(viewModel: TuaiViewModel = viewModel()) {
             uiState = uiState,
             viewModel = viewModel,
             onCopyText = { text, message ->
-                clipboardManager.setText(AnnotatedString(text))
+                runCatching {
+                    val cm = context.getSystemService(ClipboardManager::class.java)
+                    cm?.setPrimaryClip(ClipData.newPlainText("Tuai Wallet ID", text))
+                }
                 viewModel.showMessage(message)
             }
         )

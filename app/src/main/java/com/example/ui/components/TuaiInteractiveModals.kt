@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,8 +26,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,31 +33,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.PlusJakartaSans
-import com.example.ui.theme.TuaiBnbYellow
 import com.example.ui.theme.TuaiCreamBg
-import com.example.ui.theme.TuaiEthOrange
 import com.example.ui.theme.TuaiGoldAccent
 import com.example.ui.theme.TuaiInputBg
 import com.example.ui.theme.TuaiInputHint
 import com.example.ui.theme.TuaiTerracotta
-import com.example.ui.theme.TuaiTerracottaDark
 import com.example.ui.theme.TuaiTextDark
 import com.example.ui.theme.TuaiTextMuted
-import com.example.ui.theme.TuaiUsdtGreen
-import com.example.viewmodel.AssetIconType
 import com.example.viewmodel.TuaiActiveModal
+import com.example.viewmodel.TuaiScreen
 import com.example.viewmodel.TuaiUiState
 import com.example.viewmodel.TuaiViewModel
 
@@ -68,6 +61,7 @@ fun TuaiModalOverlayHost(
     onCopyText: (String, String) -> Unit
 ) {
     if (uiState.activeModal == TuaiActiveModal.NONE) return
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier
@@ -80,6 +74,7 @@ fun TuaiModalOverlayHost(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 500.dp)
+                .heightIn(max = 680.dp)
                 .clickable(enabled = false) {},
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = TuaiCreamBg,
@@ -88,6 +83,7 @@ fun TuaiModalOverlayHost(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -99,30 +95,817 @@ fun TuaiModalOverlayHost(
                         .clip(RoundedCornerShape(50))
                         .background(Color(0xFFD7C8B6))
                 )
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 when (uiState.activeModal) {
-                    TuaiActiveModal.RECEIVE_QR -> {
+                    TuaiActiveModal.PLUGIN_MANAGER -> {
                         Text(
-                            text = "Terima Aset & QR Dompet",
+                            text = "Plugin Konektor Dompet & Bank",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = TuaiTextDark
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Hubungkan GoPay, DANA, Mandiri, BRImo, BCA, OVO, ShopeePay & lainnya agar seluruh isi uangmu tampil menyatu.",
+                            fontFamily = PlusJakartaSans,
+                            fontSize = 12.sp,
+                            color = TuaiTextMuted
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Live Aggregated Total Banner inside Plugin Hub
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF7E4D4))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Total Uang Gabungan (${uiState.connectedPluginCount} Plugin)",
+                                    fontFamily = PlusJakartaSans,
+                                    fontSize = 11.sp,
+                                    color = TuaiTextMuted
+                                )
+                                Text(
+                                    text = uiState.walletBalance,
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 16.sp,
+                                    color = TuaiTerracotta
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(TuaiTerracotta)
+                                    .clickable { viewModel.syncFirebaseManual() }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "Sinkron Semua",
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        uiState.assets.forEach { plugin ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color.White)
+                                    .clickable { viewModel.openAssetDetail(plugin) }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    WalletProviderBadge(iconType = plugin.iconType, size = 38.dp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = plugin.name,
+                                            fontFamily = PlusJakartaSans,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.5.sp,
+                                            color = TuaiTextDark
+                                        )
+                                        Text(
+                                            text = "${plugin.tokenAmount} • ${plugin.allocationRole}",
+                                            fontFamily = PlusJakartaSans,
+                                            fontSize = 11.5.sp,
+                                            color = TuaiTextMuted
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(
+                                            if (plugin.isConnected) Color(0xFF4C8C4A) else TuaiTerracotta
+                                        )
+                                        .clickable { viewModel.togglePluginConnection(plugin.id) }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = if (plugin.isConnected) "Terhubung ✓" else "+ Hubungkan",
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = Color(0xFFE3D8C6))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "Tambah Plugin Dompet / Bank Lainnya",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = TuaiTextDark
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Category Selector: E-WALLET vs BANK
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("E-WALLET" to "Dompet Digital (E-Wallet)", "BANK" to "Rekening Bank").forEach { (cat, label) ->
+                                val selected = uiState.customPluginCategoryInput == cat
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (selected) TuaiTerracotta else Color.White)
+                                        .clickable { viewModel.updateCustomPluginCategory(cat) }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.5.sp,
+                                        color = if (selected) Color.White else TuaiTextDark
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Custom Plugin Name & Initial Balance
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1.2f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(TuaiInputBg)
+                                    .padding(horizontal = 12.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (uiState.customPluginNameInput.isEmpty()) {
+                                    Text(
+                                        text = "Nama (BNI, BSI, LinkAja)",
+                                        fontFamily = PlusJakartaSans,
+                                        fontSize = 12.sp,
+                                        color = TuaiInputHint
+                                    )
+                                }
+                                BasicTextField(
+                                    value = uiState.customPluginNameInput,
+                                    onValueChange = viewModel::updateCustomPluginName,
+                                    singleLine = true,
+                                    textStyle = TextStyle(
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp,
+                                        color = TuaiTextDark
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(TuaiInputBg)
+                                    .padding(horizontal = 12.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                BasicTextField(
+                                    value = uiState.customPluginBalanceInput,
+                                    onValueChange = viewModel::updateCustomPluginBalance,
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    textStyle = TextStyle(
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = TuaiTextDark
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(TuaiTerracotta)
+                                .clickable { viewModel.addNewCustomPlugin() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "+ Hubungkan Plugin Baru Sekarang",
+                                fontFamily = PlusJakartaSans,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.5.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    TuaiActiveModal.ASSET_DETAIL -> {
+                        val asset = uiState.assets.find { it.id == uiState.selectedAssetForModal?.id }
+                            ?: uiState.selectedAssetForModal
+                            ?: uiState.assets.first()
+
+                        WalletProviderBadge(iconType = asset.iconType, size = 54.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = asset.name,
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.Bold,
                             fontSize = 19.sp,
+                            color = TuaiTextDark
+                        )
+                        Text(
+                            text = "${asset.tokenAmount} • ${asset.totalUsdValue}",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.5.sp,
+                            color = TuaiTerracotta
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Pos Peruntukan Dompet (tap to cycle role)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color.White)
+                                .border(1.dp, TuaiTerracotta.copy(alpha = 0.4f), RoundedCornerShape(50))
+                                .clickable { viewModel.cycleWalletAllocationRole(asset.id) }
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "Pos Keuangan: ${asset.allocationRole} (Ketuk Ubah ↻)",
+                                fontFamily = PlusJakartaSans,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 11.5.sp,
+                                color = TuaiTextDark
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Update Account / Phone Number + Real Balance Section
+                        Text(
+                            text = "Atur No. Rek/HP & Saldo Asli di ${asset.name}",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = TuaiTextMuted
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White)
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            BasicTextField(
+                                value = uiState.manualAccountInput,
+                                onValueChange = viewModel::updateManualAccountInput,
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    color = TuaiTextDark
+                                ),
+                                cursorBrush = SolidColor(TuaiTerracotta),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(TuaiInputBg)
+                                    .padding(horizontal = 14.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                BasicTextField(
+                                    value = uiState.manualBalanceInput,
+                                    onValueChange = viewModel::updateManualBalanceInput,
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    textStyle = TextStyle(
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = TuaiTextDark
+                                    ),
+                                    cursorBrush = SolidColor(TuaiTerracotta),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFF4C8C4A))
+                                    .clickable { viewModel.saveManualWalletBalance(asset.id) }
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Simpan Saldo",
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Quick Balance Presets
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                "500000" to "500 Rb",
+                                "1500000" to "1,5 Jt",
+                                "5000000" to "5 Jt",
+                                "15000000" to "15 Jt"
+                            ).forEach { (raw, label) ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color.White)
+                                        .clickable { viewModel.updateManualBalanceInput(raw) }
+                                        .padding(vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.5.sp,
+                                        color = TuaiTerracotta
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(TuaiInputBg)
+                                    .clickable {
+                                        val launchIntent = if (asset.packageName.isNotBlank()) {
+                                            runCatching {
+                                                context.packageManager.getLaunchIntentForPackage(asset.packageName)
+                                            }.getOrNull()
+                                        } else null
+                                        if (launchIntent != null) {
+                                            runCatching { context.startActivity(launchIntent) }
+                                        } else {
+                                            viewModel.prepareTopUpForWallet(asset.id)
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "+ Isi Saldo",
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = TuaiTextDark
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(TuaiGoldAccent)
+                                    .clickable {
+                                        viewModel.prepareSwapFromWallet(asset.id)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Pindah Dana",
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = TuaiTextDark
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(TuaiTerracotta)
+                                    .clickable {
+                                        viewModel.selectWithdrawAsset(asset.id)
+                                        viewModel.navigateTo(TuaiScreen.WITHDRAW)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Catat Keluar",
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    TuaiActiveModal.SWAP_ASSET -> {
+                        val fromAsset = uiState.assets.find { it.id == uiState.swapFromAssetId }
+                            ?: uiState.assets.first()
+                        val toAsset = uiState.assets.find { it.id == uiState.swapToAssetId }
+                            ?: uiState.assets.last()
+
+                        Text(
+                            text = "Pindah Dana & Alokasi Antar Dompet",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = TuaiTextDark
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Kondisikan uangmu: pindahkan saldo antar Bank (BCA, Mandiri, BRImo) & E-Wallet (GoPay, DANA)",
+                            fontFamily = PlusJakartaSans,
+                            fontSize = 12.sp,
+                            color = TuaiTextMuted
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color.White)
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.cycleSwapFromAsset() }
+                            ) {
+                                Text(
+                                    text = "Dari Dompet (Ketuk Ubah ▾)",
+                                    fontFamily = PlusJakartaSans,
+                                    fontSize = 11.sp,
+                                    color = TuaiTextMuted
+                                )
+                                Text(
+                                    text = fromAsset.name,
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = TuaiTextDark
+                                )
+                                Text(
+                                    text = fromAsset.tokenAmount,
+                                    fontFamily = PlusJakartaSans,
+                                    fontSize = 11.5.sp,
+                                    color = TuaiTerracotta
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(TuaiGoldAccent)
+                                    .clickable { viewModel.flipSwapAssets() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                ActionSwapCircularIcon(size = 20.dp)
+                            }
+
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.cycleSwapToAsset() }
+                            ) {
+                                Text(
+                                    text = "Ke Dompet (Ketuk Ubah ▾)",
+                                    fontFamily = PlusJakartaSans,
+                                    fontSize = 11.sp,
+                                    color = TuaiTextMuted
+                                )
+                                Text(
+                                    text = toAsset.name,
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = TuaiTerracotta
+                                )
+                                Text(
+                                    text = toAsset.tokenAmount,
+                                    fontFamily = PlusJakartaSans,
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFF4C8C4A)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(TuaiInputBg)
+                                .padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            BasicTextField(
+                                value = uiState.swapAmountInput,
+                                onValueChange = viewModel::updateSwapAmount,
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = TextStyle(
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = TuaiTextDark
+                                ),
+                                cursorBrush = SolidColor(TuaiTerracotta),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "100000" to "Rp 100rb",
+                                "250000" to "Rp 250rb",
+                                "500000" to "Rp 500rb",
+                                "1000000" to "Rp 1 Jt"
+                            ).forEach { (preset, label) ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color.White)
+                                        .clickable { viewModel.updateSwapAmount(preset) }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.5.sp,
+                                        color = TuaiTerracotta
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(TuaiTerracotta)
+                                .clickable { viewModel.submitSwap() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Pindahkan Dana Sekarang",
+                                fontFamily = PlusJakartaSans,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    TuaiActiveModal.TOP_UP -> {
+                        Text(
+                            text = "Isi Saldo / Catat Pemasukan",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = TuaiTextDark
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Pilih dompet/rekening tujuan dan nominal uang masuk",
+                            fontFamily = PlusJakartaSans,
+                            fontSize = 12.5.sp,
+                            color = TuaiTextMuted
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Target Wallet Horizontal Picker
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            uiState.assets.forEach { wallet ->
+                                val isTarget = uiState.topUpTargetAssetId == wallet.id
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isTarget) TuaiTerracotta else Color.White)
+                                        .clickable { viewModel.updateTopUpTargetAsset(wallet.id) }
+                                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = wallet.name,
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
+                                        color = if (isTarget) Color.White else TuaiTextDark
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "100000" to "+100rb",
+                                "500000" to "+500rb",
+                                "1000000" to "+1 Jt",
+                                "5000000" to "+5 Jt"
+                            ).forEach { (preset, label) ->
+                                val selected = uiState.topUpAmountInput == preset
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (selected) TuaiTerracotta else Color.White)
+                                        .clickable { viewModel.updateTopUpAmount(preset) }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontFamily = PlusJakartaSans,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
+                                        color = if (selected) Color.White else TuaiTextDark
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        listOf(
+                            "Transfer dari BCA (myBCA)",
+                            "Gaji / Penghasilan Bulanan",
+                            "Transfer Masuk / QRIS"
+                        ).forEach { method ->
+                            val isSelected = uiState.topUpMethod == method
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(if (isSelected) Color(0xFFF7E4D4) else Color.White)
+                                    .clickable { viewModel.updateTopUpMethod(method) }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = method,
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    color = TuaiTextDark
+                                )
+                                Text(
+                                    text = if (isSelected) "Dipilih ✓" else "Pilih",
+                                    fontFamily = PlusJakartaSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = TuaiTerracotta
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        val numericTopUp = uiState.topUpAmountInput.toDoubleOrNull() ?: 0.0
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(TuaiTerracotta)
+                                .clickable { viewModel.submitTopUp() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Tambah +${TuaiViewModel.formatHeadlineBalance(numericTopUp)} Sekarang",
+                                fontFamily = PlusJakartaSans,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    TuaiActiveModal.RECEIVE_QR -> {
+                        Text(
+                            text = "Terima Dana & QRIS Tuai",
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
                             color = TuaiTextDark
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "Pindai kode QR atau bagikan ID Dompet Tuai Anda",
                             fontFamily = PlusJakartaSans,
-                            fontSize = 13.sp,
+                            fontSize = 12.5.sp,
                             color = TuaiTextMuted
                         )
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Simulated QR Code Box
                         Box(
                             modifier = Modifier
-                                .size(164.dp)
+                                .size(154.dp)
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(Color.White)
                                 .border(2.dp, TuaiGoldAccent, RoundedCornerShape(20.dp))
@@ -154,15 +937,15 @@ fun TuaiModalOverlayHost(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "Wallet ID: ${uiState.walletId} • ${uiState.walletAddressHex}",
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.5.sp,
+                            fontSize = 13.sp,
                             color = TuaiTextDark
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -171,7 +954,7 @@ fun TuaiModalOverlayHost(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(48.dp)
+                                    .height(46.dp)
                                     .clip(RoundedCornerShape(50))
                                     .background(TuaiInputBg)
                                     .clickable {
@@ -186,276 +969,27 @@ fun TuaiModalOverlayHost(
                                     text = "Salin ID",
                                     fontFamily = PlusJakartaSans,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
+                                    fontSize = 13.5.sp,
                                     color = TuaiTextDark
                                 )
                             }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(48.dp)
+                                    .height(46.dp)
                                     .clip(RoundedCornerShape(50))
                                     .background(TuaiTerracotta)
-                                    .clickable { viewModel.simulateReceiveFunds(500.0) },
+                                    .clickable { viewModel.simulateReceiveFunds(500_000.0) },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Terima +$500",
+                                    text = "Terima +Rp 500rb",
                                     fontFamily = PlusJakartaSans,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
+                                    fontSize = 13.5.sp,
                                     color = Color.White
                                 )
                             }
-                        }
-                    }
-
-                    TuaiActiveModal.SWAP_ASSET -> {
-                        val fromAsset = uiState.assets.find { it.id == uiState.swapFromAssetId }
-                            ?: uiState.assets.first()
-                        val toAsset = uiState.assets.find { it.id == uiState.swapToAssetId }
-                            ?: uiState.assets.last()
-
-                        Text(
-                            text = "Swap & Konversi Aset Instan",
-                            fontFamily = PlusJakartaSans,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                            color = TuaiTextDark
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Tukar aset kripto secara real-time tanpa biaya tersembunyi",
-                            fontFamily = PlusJakartaSans,
-                            fontSize = 13.sp,
-                            color = TuaiTextMuted
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(Color.White)
-                                .padding(14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Dari Aset",
-                                    fontFamily = PlusJakartaSans,
-                                    fontSize = 12.sp,
-                                    color = TuaiTextMuted
-                                )
-                                Text(
-                                    text = "${fromAsset.name} (${fromAsset.symbol})",
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = TuaiTextDark
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(TuaiGoldAccent)
-                                    .clickable { viewModel.flipSwapAssets() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                ActionSwapCircularIcon(size = 20.dp)
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = "Ke Aset",
-                                    fontFamily = PlusJakartaSans,
-                                    fontSize = 12.sp,
-                                    color = TuaiTextMuted
-                                )
-                                Text(
-                                    text = "${toAsset.name} (${toAsset.symbol})",
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = TuaiTerracotta
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Nominal Input
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(TuaiInputBg)
-                                .padding(horizontal = 18.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            BasicTextField(
-                                value = uiState.swapAmountInput,
-                                onValueChange = viewModel::updateSwapAmount,
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                textStyle = TextStyle(
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = TuaiTextDark
-                                ),
-                                cursorBrush = SolidColor(TuaiTerracotta),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("100", "500", "1000", "2500").forEach { preset ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(Color.White)
-                                        .clickable { viewModel.updateSwapAmount(preset) }
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "$$preset",
-                                        fontFamily = PlusJakartaSans,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 12.5.sp,
-                                        color = TuaiTerracotta
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(TuaiTerracotta)
-                                .clickable { viewModel.submitSwap() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Konfirmasi Swap Sekarang",
-                                fontFamily = PlusJakartaSans,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
-
-                    TuaiActiveModal.TOP_UP -> {
-                        Text(
-                            text = "Top Up & Tambah Aset",
-                            fontFamily = PlusJakartaSans,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                            color = TuaiTextDark
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Pilih nominal dan metode pembayaran instan",
-                            fontFamily = PlusJakartaSans,
-                            fontSize = 13.sp,
-                            color = TuaiTextMuted
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("100", "500", "1000", "5000").forEach { preset ->
-                                val selected = uiState.topUpAmountInput == preset
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(if (selected) TuaiTerracotta else Color.White)
-                                        .clickable { viewModel.updateTopUpAmount(preset) }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "+$$preset",
-                                        fontFamily = PlusJakartaSans,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp,
-                                        color = if (selected) Color.White else TuaiTextDark
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        listOf(
-                            "BCA Virtual Account",
-                            "Mandiri Virtual Account",
-                            "QRIS Tuai Instan"
-                        ).forEach { method ->
-                            val isSelected = uiState.topUpMethod == method
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isSelected) Color(0xFFF7E4D4) else Color.White)
-                                    .clickable { viewModel.updateTopUpMethod(method) }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = method,
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.5.sp,
-                                    color = TuaiTextDark
-                                )
-                                Text(
-                                    text = if (isSelected) "Dipilih ✓" else "Pilih",
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp,
-                                    color = TuaiTerracotta
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(TuaiTerracotta)
-                                .clickable { viewModel.submitTopUp() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Top Up +$${uiState.topUpAmountInput} Sekarang",
-                                fontFamily = PlusJakartaSans,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                                color = Color.White
-                            )
                         }
                     }
 
@@ -466,7 +1000,7 @@ fun TuaiModalOverlayHost(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Pusat Notifikasi",
+                                text = "Pusat Notifikasi & Kondisi",
                                 fontFamily = PlusJakartaSans,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
@@ -513,7 +1047,7 @@ fun TuaiModalOverlayHost(
                                 Text(
                                     text = notif.message,
                                     fontFamily = PlusJakartaSans,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 12.sp,
                                     color = TuaiTextMuted
                                 )
                             }
@@ -595,7 +1129,7 @@ fun TuaiModalOverlayHost(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Sentuh sensor sidik jari di bawah untuk masuk secara instan",
+                            text = "Sentuh sensor sidik jari di bawah untuk mengakses seluruh dompet & bank terhubung",
                             fontFamily = PlusJakartaSans,
                             fontSize = 13.sp,
                             color = TuaiTextMuted
@@ -622,85 +1156,23 @@ fun TuaiModalOverlayHost(
                         )
                     }
 
-                    TuaiActiveModal.ASSET_DETAIL -> {
-                        val asset = uiState.selectedAssetForModal ?: uiState.assets.first()
-                        Text(
-                            text = "${asset.name} (${asset.symbol})",
-                            fontFamily = PlusJakartaSans,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                            color = TuaiTextDark
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${asset.tokenAmount} • Nilai Total ${asset.totalUsdValue}",
-                            fontFamily = PlusJakartaSans,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 13.5.sp,
-                            color = TuaiTerracotta
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(TuaiInputBg)
-                                    .clickable {
-                                        viewModel.openModal(TuaiActiveModal.SWAP_ASSET)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Swap ${asset.symbol}",
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.5.sp,
-                                    color = TuaiTextDark
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(TuaiTerracotta)
-                                    .clickable {
-                                        viewModel.selectWithdrawAsset(asset.id)
-                                        viewModel.navigateTo(com.example.viewmodel.TuaiScreen.WITHDRAW)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Withdraw ${asset.symbol}",
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.5.sp,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-
                     TuaiActiveModal.TRANSACTION_DETAIL -> {
                         val tx = uiState.selectedTxForModal ?: uiState.transactions.first()
+                        WalletProviderBadge(iconType = tx.iconType, size = 48.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Bukti Transaksi Resmi",
+                            text = "Rincian Mutasi Dompet",
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = TuaiTextDark
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = tx.amount,
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 28.sp,
+                            fontSize = 26.sp,
                             color = if (tx.isPositive) Color(0xFF4C8C4A) else TuaiTerracotta
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -722,14 +1194,14 @@ fun TuaiModalOverlayHost(
 
                     TuaiActiveModal.WITHDRAW_EXCHANGE_PICKER -> {
                         Text(
-                            text = "Pilih Aset & Tujuan Penarikan",
+                            text = "Pilih Dompet / Rekening Sumber Dana",
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = TuaiTextDark
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        uiState.assets.forEach { asset ->
+                        Spacer(modifier = Modifier.height(10.dp))
+                        uiState.connectedAssets.forEach { asset ->
                             val isSelected = uiState.selectedWithdrawAssetId == asset.id
                             Row(
                                 modifier = Modifier
@@ -738,22 +1210,34 @@ fun TuaiModalOverlayHost(
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(if (isSelected) Color(0xFFF7E4D4) else Color.White)
                                     .clickable { viewModel.selectWithdrawAsset(asset.id) }
-                                    .padding(14.dp),
+                                    .padding(12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "${asset.name} (${asset.tokenAmount})",
-                                    fontFamily = PlusJakartaSans,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
-                                    color = TuaiTextDark
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    WalletProviderBadge(iconType = asset.iconType, size = 34.dp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = asset.name,
+                                            fontFamily = PlusJakartaSans,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.5.sp,
+                                            color = TuaiTextDark
+                                        )
+                                        Text(
+                                            text = "${asset.tokenAmount} • ${asset.allocationRole}",
+                                            fontFamily = PlusJakartaSans,
+                                            fontSize = 11.5.sp,
+                                            color = TuaiTextMuted
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = if (isSelected) "Aktif ✓" else "Pilih",
                                     fontFamily = PlusJakartaSans,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 12.sp,
                                     color = TuaiTerracotta
                                 )
                             }
@@ -774,15 +1258,15 @@ fun TuaiModalOverlayHost(
                             fontSize = 13.sp,
                             color = TuaiTextMuted
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Status Database: ${uiState.lastSyncedLabel}",
+                            text = uiState.financialHealthStatus,
                             fontFamily = PlusJakartaSans,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
                             color = Color(0xFF4C8C4A)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -794,12 +1278,12 @@ fun TuaiModalOverlayHost(
                                     .clip(RoundedCornerShape(50))
                                     .background(TuaiInputBg)
                                     .clickable {
-                                        viewModel.selectBottomNav(3)
+                                        viewModel.openModal(TuaiActiveModal.PLUGIN_MANAGER)
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Pengaturan",
+                                    text = "Kelola Plugin",
                                     fontFamily = PlusJakartaSans,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 13.5.sp,
@@ -832,515 +1316,5 @@ fun TuaiModalOverlayHost(
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
-    }
-}
-
-@Composable
-fun TuaiHomeTabContent(
-    uiState: TuaiUiState,
-    onNavigateToWithdraw: () -> Unit,
-    onOpenModal: (TuaiActiveModal) -> Unit,
-    onContributeGoal: (String) -> Unit,
-    onSwitchToWalletTab: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 12.dp)
-    ) {
-        Text(
-            text = "Halo, ${uiState.userName}",
-            fontFamily = PlusJakartaSans,
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp,
-            color = TuaiTextDark
-        )
-        Text(
-            text = "Pantau & panen pertumbuhan aset finansialmu hari ini",
-            fontFamily = PlusJakartaSans,
-            fontSize = 13.sp,
-            color = TuaiTextMuted
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Target Tuai / Financial Harvest Goals
-        Text(
-            text = "Target Panen Finansial (Tuai Goals)",
-            fontFamily = PlusJakartaSans,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp,
-            color = TuaiTextDark
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-
-        uiState.savingsGoals.forEach { goal ->
-            val progress = (goal.currentUsd / goal.targetUsd).toFloat().coerceIn(0f, 1f)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFFFAF3E8))
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = goal.title,
-                        fontFamily = PlusJakartaSans,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.5.sp,
-                        color = TuaiTextDark,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(TuaiTerracotta)
-                            .clickable { onContributeGoal(goal.id) }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "+ Panen $250",
-                            fontFamily = PlusJakartaSans,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.sp,
-                            color = Color.White
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xFFE5D8C5))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progress)
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(TuaiTerracotta)
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "$${goal.currentUsd.toInt()} terkumpul",
-                        fontFamily = PlusJakartaSans,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp,
-                        color = TuaiTerracottaDark
-                    )
-                    Text(
-                        text = "Target $${goal.targetUsd.toInt()} (${goal.deadline})",
-                        fontFamily = PlusJakartaSans,
-                        fontSize = 12.sp,
-                        color = TuaiTextMuted
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Aktivitas Terkini",
-                fontFamily = PlusJakartaSans,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = TuaiTextDark
-            )
-            Text(
-                text = "Lihat Dompet →",
-                fontFamily = PlusJakartaSans,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.5.sp,
-                color = TuaiTerracotta,
-                modifier = Modifier.clickable(onClick = onSwitchToWalletTab)
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        uiState.transactions.take(2).forEach { tx ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = tx.title,
-                        fontFamily = PlusJakartaSans,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        color = TuaiTextDark
-                    )
-                    Text(
-                        text = tx.date,
-                        fontFamily = PlusJakartaSans,
-                        fontSize = 12.sp,
-                        color = TuaiTextMuted
-                    )
-                }
-                Text(
-                    text = tx.amount,
-                    fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = if (tx.isPositive) Color(0xFF4C8C4A) else TuaiTerracotta
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun TuaiChartTabContent(
-    uiState: TuaiUiState,
-    onSelectTimeframe: (String) -> Unit,
-    onNavigateToWithdraw: () -> Unit,
-    onOpenSwap: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Analitik Portofolio",
-                    fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 19.sp,
-                    color = TuaiTextDark
-                )
-                Text(
-                    text = "Pertumbuhan +18.64% (${uiState.selectedChartTimeframe})",
-                    fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = Color(0xFF4C8C4A)
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("24H", "1W", "1M", "1Y").forEach { tf ->
-                    val active = uiState.selectedChartTimeframe == tf
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(if (active) TuaiTerracotta else Color(0xFFFAF3E8))
-                            .clickable { onSelectTimeframe(tf) }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = tf,
-                            fontFamily = PlusJakartaSans,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.5.sp,
-                            color = if (active) Color.White else TuaiTextDark
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Smooth Area Line Chart Canvas
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(148.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFFFAF3E8))
-                .padding(16.dp)
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val points = when (uiState.selectedChartTimeframe) {
-                    "24H" -> listOf(0.55f, 0.48f, 0.52f, 0.38f, 0.42f, 0.28f, 0.22f)
-                    "1W" -> listOf(0.70f, 0.60f, 0.50f, 0.54f, 0.35f, 0.30f, 0.18f)
-                    "1Y" -> listOf(0.85f, 0.72f, 0.64f, 0.48f, 0.40f, 0.25f, 0.12f)
-                    else -> listOf(0.75f, 0.62f, 0.68f, 0.45f, 0.38f, 0.24f, 0.15f)
-                }
-                val stepX = size.width / (points.size - 1).coerceAtLeast(1)
-                val linePath = Path()
-                val fillPath = Path()
-
-                points.forEachIndexed { i, yRatio ->
-                    val x = i * stepX
-                    val y = yRatio * size.height
-                    if (i == 0) {
-                        linePath.moveTo(x, y)
-                        fillPath.moveTo(x, size.height)
-                        fillPath.lineTo(x, y)
-                    } else {
-                        linePath.lineTo(x, y)
-                        fillPath.lineTo(x, y)
-                    }
-                }
-                fillPath.lineTo(size.width, size.height)
-                fillPath.close()
-
-                drawPath(
-                    path = fillPath,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(TuaiTerracotta.copy(alpha = 0.28f), Color.Transparent)
-                    )
-                )
-                drawPath(
-                    path = linePath,
-                    color = TuaiTerracotta,
-                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Text(
-            text = "Alokasi Aset Kripto",
-            fontFamily = PlusJakartaSans,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.5.sp,
-            color = TuaiTextDark
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp)
-                .clip(RoundedCornerShape(50))
-        ) {
-            Box(modifier = Modifier.weight(0.45f).fillMaxSize().background(TuaiEthOrange))
-            Box(modifier = Modifier.weight(0.25f).fillMaxSize().background(TuaiBnbYellow))
-            Box(modifier = Modifier.weight(0.30f).fillMaxSize().background(TuaiUsdtGreen))
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(TuaiGoldAccent)
-                    .clickable(onClick = onOpenSwap),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Swap Aset",
-                    fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.5.sp,
-                    color = TuaiTextDark
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(TuaiTerracotta)
-                    .clickable(onClick = onNavigateToWithdraw),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Withdraw",
-                    fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.5.sp,
-                    color = Color.White
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun TuaiSettingsTabContent(
-    uiState: TuaiUiState,
-    onTogglePrivacy: () -> Unit,
-    onToggleBiometric: () -> Unit,
-    onToggleNotifications: () -> Unit,
-    onSyncFirebase: () -> Unit,
-    onResetData: () -> Unit,
-    onLogout: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 10.dp)
-    ) {
-        // Firebase Cloud Sync Banner
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFFFAF3E8))
-                .padding(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Firebase Cloud & Local Database",
-                        fontFamily = PlusJakartaSans,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = TuaiTextDark
-                    )
-                    Text(
-                        text = uiState.lastSyncedLabel,
-                        fontFamily = PlusJakartaSans,
-                        fontSize = 12.sp,
-                        color = Color(0xFF4C8C4A)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(TuaiTerracotta)
-                        .clickable(onClick = onSyncFirebase)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "Sync Cloud",
-                        fontFamily = PlusJakartaSans,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 11.5.sp,
-                        color = Color.White
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Settings Switches
-        SettingsToggleRow(
-            title = "Sembunyikan Saldo (Privacy Mode)",
-            checked = uiState.isBalanceHidden,
-            onCheckedChange = { onTogglePrivacy() }
-        )
-        HorizontalDivider(color = Color(0xFFF3EFEA))
-        SettingsToggleRow(
-            title = "Login Sidik Jari Biometrik",
-            checked = uiState.biometricEnabled,
-            onCheckedChange = { onToggleBiometric() }
-        )
-        HorizontalDivider(color = Color(0xFFF3EFEA))
-        SettingsToggleRow(
-            title = "Notifikasi Transaksi Real-Time",
-            checked = uiState.notificationsEnabled,
-            onCheckedChange = { onToggleNotifications() }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(TuaiInputBg)
-                    .clickable(onClick = onResetData),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Reset Demo",
-                    fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = TuaiTextDark
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(TuaiTerracotta)
-                    .clickable(onClick = onLogout),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Keluar Akun",
-                    fontFamily = PlusJakartaSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = Color.White
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsToggleRow(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            fontFamily = PlusJakartaSans,
-            fontWeight = FontWeight.Medium,
-            fontSize = 13.5.sp,
-            color = TuaiTextDark
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = TuaiTerracotta
-            )
-        )
     }
 }

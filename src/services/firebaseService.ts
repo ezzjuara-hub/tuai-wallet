@@ -18,162 +18,401 @@ import {
   type Firestore,
   type Unsubscribe
 } from 'firebase/firestore';
-import type { FirebaseCustomConfig, TuaiWalletState } from '../types/tuai';
+import type {
+  CryptoAssetItem,
+  FirebaseCustomConfig,
+  TuaiWalletState
+} from '../types/tuai';
 
-const LOCAL_STORAGE_WALLET_KEY = 'tuai_wallet_persisted_state_v1';
+const LOCAL_STORAGE_WALLET_KEY = 'tuai_multiwallet_v2_web_store';
 const LOCAL_STORAGE_FB_CONFIG_KEY = 'tuai_firebase_custom_config_v1';
 
-export const DEFAULT_INITIAL_WALLET_STATE: TuaiWalletState = {
+export function formatRupiah(amount: number): string {
+  const rounded = Math.round(Math.max(0, amount));
+  return 'Rp ' + rounded.toLocaleString('id-ID');
+}
+
+export function formatShortRupiah(amount: number): string {
+  if (amount >= 1_000_000) {
+    const jt = (amount / 1_000_000).toLocaleString('id-ID', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `Rp ${jt} Jt`;
+  }
+  if (amount >= 1_000) {
+    const rb = Math.round(amount / 1_000).toLocaleString('id-ID');
+    return `Rp ${rb} Rb`;
+  }
+  return formatRupiah(amount);
+}
+
+const RAW_INITIAL_PLUGINS: CryptoAssetItem[] = [
+  {
+    id: 'bca',
+    symbol: 'BCA',
+    name: 'BCA (myBCA)',
+    percentageAndValue: '49,1% • Tabungan & Pos Utama',
+    tokenAmount: 'Rp 14.500.000',
+    totalUsdValue: 'Bank • 8820-1928-31',
+    tokenNumeric: 14_500_000,
+    unitPriceUsd: 1,
+    change24h: 'Terhubung',
+    iconType: 'BCA',
+    walletCategory: 'BANK',
+    accountNumber: '8820-1928-31',
+    allocationRole: 'Tabungan & Pos Utama',
+    isConnected: true
+  },
+  {
+    id: 'mandiri',
+    symbol: 'MANDIRI',
+    name: "Livin' by Mandiri",
+    percentageAndValue: '27,9% • Dana Darurat & Investasi',
+    tokenAmount: 'Rp 8.250.000',
+    totalUsdValue: 'Bank • 137-00-982145',
+    tokenNumeric: 8_250_000,
+    unitPriceUsd: 1,
+    change24h: 'Terhubung',
+    iconType: 'MANDIRI',
+    walletCategory: 'BANK',
+    accountNumber: '137-00-982145',
+    allocationRole: 'Dana Darurat & Investasi',
+    isConnected: true
+  },
+  {
+    id: 'brimo',
+    symbol: 'BRIMO',
+    name: 'BRImo (Bank BRI)',
+    percentageAndValue: '15,6% • Operasional & Tagihan',
+    tokenAmount: 'Rp 4.600.000',
+    totalUsdValue: 'Bank • 0341-01-029384',
+    tokenNumeric: 4_600_000,
+    unitPriceUsd: 1,
+    change24h: 'Terhubung',
+    iconType: 'BRIMO',
+    walletCategory: 'BANK',
+    accountNumber: '0341-01-029384',
+    allocationRole: 'Operasional & Tagihan',
+    isConnected: true
+  },
+  {
+    id: 'gopay',
+    symbol: 'GOPAY',
+    name: 'GoPay',
+    percentageAndValue: '4,6% • Transport & Makan Harian',
+    tokenAmount: 'Rp 1.350.000',
+    totalUsdValue: 'E-Wallet • 0812-3456-7890',
+    tokenNumeric: 1_350_000,
+    unitPriceUsd: 1,
+    change24h: 'Terhubung',
+    iconType: 'GOPAY',
+    walletCategory: 'E-WALLET',
+    accountNumber: '0812-3456-7890',
+    allocationRole: 'Transport & Makan Harian',
+    isConnected: true
+  },
+  {
+    id: 'dana',
+    symbol: 'DANA',
+    name: 'DANA',
+    percentageAndValue: '2,9% • Belanja & QRIS Harian',
+    tokenAmount: 'Rp 850.000',
+    totalUsdValue: 'E-Wallet • 0812-3456-7890',
+    tokenNumeric: 850_000,
+    unitPriceUsd: 1,
+    change24h: 'Terhubung',
+    iconType: 'DANA',
+    walletCategory: 'E-WALLET',
+    accountNumber: '0812-3456-7890',
+    allocationRole: 'Belanja & QRIS Harian',
+    isConnected: true
+  },
+  {
+    id: 'ovo',
+    symbol: 'OVO',
+    name: 'OVO',
+    percentageAndValue: 'Plugin Tersedia • Hiburan & Grab',
+    tokenAmount: 'Rp 620.000',
+    totalUsdValue: 'E-Wallet • 0812-3456-7890',
+    tokenNumeric: 620_000,
+    unitPriceUsd: 1,
+    change24h: 'Siap Hubung',
+    iconType: 'OVO',
+    walletCategory: 'E-WALLET',
+    accountNumber: '0812-3456-7890',
+    allocationRole: 'Hiburan & Gaya Hidup',
+    isConnected: false
+  },
+  {
+    id: 'shopeepay',
+    symbol: 'SHOPEEPAY',
+    name: 'ShopeePay',
+    percentageAndValue: 'Plugin Tersedia • Belanja Online',
+    tokenAmount: 'Rp 450.000',
+    totalUsdValue: 'E-Wallet • 0812-3456-7890',
+    tokenNumeric: 450_000,
+    unitPriceUsd: 1,
+    change24h: 'Siap Hubung',
+    iconType: 'SHOPEEPAY',
+    walletCategory: 'E-WALLET',
+    accountNumber: '0812-3456-7890',
+    allocationRole: 'Belanja E-Commerce',
+    isConnected: false
+  },
+  {
+    id: 'seabank',
+    symbol: 'SEABANK',
+    name: 'SeaBank',
+    percentageAndValue: 'Plugin Tersedia • Tabungan Cair',
+    tokenAmount: 'Rp 3.500.000',
+    totalUsdValue: 'Bank • 9012-8834-1920',
+    tokenNumeric: 3_500_000,
+    unitPriceUsd: 1,
+    change24h: 'Siap Hubung',
+    iconType: 'SEABANK',
+    walletCategory: 'BANK',
+    accountNumber: '9012-8834-1920',
+    allocationRole: 'Tabungan Bunga Harian',
+    isConnected: false
+  }
+];
+
+export function recalculateWalletState(state: TuaiWalletState): TuaiWalletState {
+  const connected = state.assets.filter((a) => a.isConnected);
+  const totalConnected = connected.reduce((sum, a) => sum + a.tokenNumeric, 0);
+  const bankTotal = connected
+    .filter((a) => a.walletCategory === 'BANK')
+    .reduce((sum, a) => sum + a.tokenNumeric, 0);
+  const ewalletTotal = connected
+    .filter((a) => a.walletCategory === 'E-WALLET')
+    .reduce((sum, a) => sum + a.tokenNumeric, 0);
+
+  const safeDiv = totalConnected > 0 ? totalConnected : 1;
+  const bankPct = totalConnected > 0 ? Math.round((bankTotal / safeDiv) * 100) : 0;
+  const ewalletPct = totalConnected > 0 ? Math.max(0, 100 - bankPct) : 0;
+
+  const updatedAssets: CryptoAssetItem[] = state.assets.map((item) => {
+    const pct = item.isConnected ? ((item.tokenNumeric / safeDiv) * 100).toFixed(1).replace('.', ',') : '0,0';
+    const catLabel = item.walletCategory === 'BANK' ? 'Bank' : 'E-Wallet';
+    return {
+      ...item,
+      tokenAmount: formatRupiah(item.tokenNumeric),
+      percentageAndValue: item.isConnected
+        ? `${pct}% • ${item.allocationRole}`
+        : `Tidak Aktif • ${item.allocationRole}`,
+      totalUsdValue: `${catLabel} • ${item.accountNumber}`,
+      change24h: item.isConnected ? 'Terhubung' : 'Nonaktif'
+    };
+  });
+
+  const healthStatus =
+    totalConnected <= 0
+      ? 'Belum Ada Dompet Terhubung'
+      : ewalletPct > 35
+        ? `Perlu Dikondisikan (${bankPct}% Bank • ${ewalletPct}% E-Wallet)`
+        : `Sehat & Terkendali (${bankPct}% Bank • ${ewalletPct}% E-Wallet)`;
+
+  const advice =
+    totalConnected <= 0
+      ? 'Aktifkan plugin BCA, Mandiri, BRImo, GoPay, atau DANA untuk melihat total uangmu.'
+      : ewalletPct > 35
+        ? `Saldo E-Wallet (${formatShortRupiah(ewalletTotal)}) cukup tinggi (${ewalletPct}%). Amankan sebagian ke rekening Bank agar tidak boros.`
+        : `Kas harian di E-Wallet (${formatShortRupiah(ewalletTotal)}) pas untuk QRIS & operasional, sedangkan ${formatShortRupiah(bankTotal)} aman di Bank.`;
+
+  const bcaMandiriSum = connected
+    .filter((a) => a.id === 'bca' || a.id === 'mandiri' || a.id === 'seabank')
+    .reduce((s, a) => s + a.tokenNumeric, 0);
+  const brimoBankSum = connected
+    .filter((a) => a.walletCategory === 'BANK' && a.id !== 'bca' && a.id !== 'mandiri' && a.id !== 'seabank')
+    .reduce((s, a) => s + a.tokenNumeric, 0);
+
+  const syncedGoals = state.savingsGoals.map((goal, idx) => {
+    if (goal.id === 'goal1' || idx === 0) {
+      return {
+        ...goal,
+        currentUsd: bcaMandiriSum > 0 ? bcaMandiriSum : bankTotal
+      };
+    }
+    if (goal.id === 'goal2' || idx === 1) {
+      return {
+        ...goal,
+        currentUsd: ewalletTotal
+      };
+    }
+    if (goal.id === 'goal3' || idx === 2) {
+      return {
+        ...goal,
+        currentUsd: brimoBankSum > 0 ? brimoBankSum : bankTotal * 0.2
+      };
+    }
+    return goal;
+  });
+
+  return {
+    ...state,
+    walletBalanceNumeric: totalConnected,
+    walletBalance: formatRupiah(totalConnected),
+    bankBalanceNumeric: bankTotal,
+    ewalletBalanceNumeric: ewalletTotal,
+    connectedPluginCount: connected.length,
+    financialHealthStatus: healthStatus,
+    financialConditionAdvice: advice,
+    assets: updatedAssets,
+    savingsGoals: syncedGoals
+  };
+}
+
+export const DEFAULT_INITIAL_WALLET_STATE: TuaiWalletState = recalculateWalletState({
   walletId: '2678900085',
-  walletAddressHex: '0x71C9...89A4F2',
+  walletAddressHex: 'ID-TUAI-882019',
   userName: 'Alex Pratama',
   userEmail: 'alex.pratama@tuai.id',
-  walletBalanceNumeric: 23867,
-  walletBalance: '$23,867',
+  walletBalanceNumeric: 29_550_000,
+  walletBalance: 'Rp 29.550.000',
+  bankBalanceNumeric: 27_350_000,
+  ewalletBalanceNumeric: 2_200_000,
+  connectedPluginCount: 5,
+  financialHealthStatus: 'Sehat & Terkendali (93% Bank • 7% E-Wallet)',
+  financialConditionAdvice:
+    'Saldo kas harian di GoPay & DANA (Rp 2,20 Jt) cukup untuk operasional, sementara Rp 27,35 Jt aman di BCA, Mandiri & BRImo.',
   isBalanceHidden: false,
   biometricEnabled: true,
   notificationsEnabled: true,
   isWithdrawStarred: false,
-  selectedWithdrawAssetId: 'eth',
-  withdrawDestination: 'BCA • 8820192831 (Alex Pratama)',
-  assets: [
-    {
-      id: 'eth',
-      symbol: 'ETH',
-      name: 'Ethereum',
-      percentageAndValue: '28,74% ($28,015)',
-      tokenAmount: '79.006 ETH',
-      totalUsdValue: '$100,000.00',
-      tokenNumeric: 79.006,
-      unitPriceUsd: 1265.72,
-      change24h: '+4.82%',
-      iconType: 'ETHEREUM'
-    },
-    {
-      id: 'bnb',
-      symbol: 'BNB',
-      name: 'Binance',
-      percentageAndValue: '15.96% ($28,015)',
-      tokenAmount: '107.70 BNB',
-      totalUsdValue: '$30,812.92',
-      tokenNumeric: 107.7,
-      unitPriceUsd: 286.1,
-      change24h: '+2.45%',
-      iconType: 'BINANCE'
-    },
-    {
-      id: 'usdt',
-      symbol: 'USDT',
-      name: 'Tether usd',
-      percentageAndValue: '29.74% ($26,015)',
-      tokenAmount: '79.006 ETH',
-      totalUsdValue: '$100,000.00',
-      tokenNumeric: 79.006,
-      unitPriceUsd: 1265.72,
-      change24h: '+0.05%',
-      iconType: 'TETHER'
-    }
-  ],
+  selectedWithdrawAssetId: 'gopay',
+  withdrawDestination: 'QRIS & Makan Harian',
+  assets: RAW_INITIAL_PLUGINS,
   transactions: [
     {
       id: 'tx1',
-      title: 'Withdraw Ethereum',
-      date: 'Today, 09:41 AM',
-      amount: '-$1,929.00',
-      numericUsd: 1929,
-      isPositive: false,
-      iconType: 'ETHEREUM',
-      category: 'WITHDRAW',
+      title: 'Top Up GoPay dari BCA',
+      date: 'Hari ini, 09:41 WIB',
+      amount: '+Rp 500.000',
+      numericUsd: 500_000,
+      isPositive: true,
+      iconType: 'GOPAY',
+      category: 'SWAP',
       status: 'Berhasil',
-      referenceNote: 'Transfer ke BCA • 8820192831 (Alex Pratama)'
+      referenceNote: 'Alokasi Kas Harian: BCA (myBCA) → GoPay'
     },
     {
       id: 'tx2',
-      title: 'Received Binance',
-      date: 'Yesterday, 04:15 PM',
-      amount: '+$4,250.00',
-      numericUsd: 4250,
+      title: 'Gaji & Pemasukan Mandiri',
+      date: 'Kemarin, 16:15 WIB',
+      amount: '+Rp 8.250.000',
+      numericUsd: 8_250_000,
       isPositive: true,
-      iconType: 'BINANCE',
+      iconType: 'MANDIRI',
       category: 'RECEIVE',
       status: 'Berhasil',
-      referenceNote: 'Deposit Masuk dari 0x48F...91B2'
+      referenceNote: "Rekening Livin' by Mandiri • 137-00-982145"
     },
     {
       id: 'tx3',
-      title: 'Tether usd Swap',
-      date: 'Oct 29, 11:20 AM',
-      amount: '+$2,600.00',
-      numericUsd: 2600,
-      isPositive: true,
-      iconType: 'TETHER',
-      category: 'SWAP',
+      title: 'Bayar QRIS Makan & Kopi (DANA)',
+      date: 'Kemarin, 12:30 WIB',
+      amount: '-Rp 85.000',
+      numericUsd: 85_000,
+      isPositive: false,
+      iconType: 'DANA',
+      category: 'WITHDRAW',
       status: 'Berhasil',
-      referenceNote: 'Konversi Instan ETH → USDT'
+      referenceNote: 'Pos Belanja & QRIS Harian via DANA'
+    },
+    {
+      id: 'tx4',
+      title: 'Tagihan Listrik & Internet (BRImo)',
+      date: '28 Okt, 19:20 WIB',
+      amount: '-Rp 420.000',
+      numericUsd: 420_000,
+      isPositive: false,
+      iconType: 'BRIMO',
+      category: 'WITHDRAW',
+      status: 'Berhasil',
+      referenceNote: 'Pos Operasional & Tagihan via BRImo'
     }
   ],
   notifications: [
     {
       id: 'notif1',
-      title: 'Sinkronisasi Firebase Aktif',
+      title: '5 Plugin Dompet & Bank Terhubung',
       message:
-        'Dompet Tuai #2678900085 telah terhubung dan diamankan dengan penyimpanan real-time.',
+        "BCA (myBCA), Livin' by Mandiri, BRImo, GoPay, dan DANA aktif disinkronkan secara real-time.",
       time: 'Baru saja',
       isRead: false
     },
     {
       id: 'notif2',
-      title: 'Deposit Binance Diterima',
-      message: 'Saldo sebesar +$4,250.00 berhasil masuk ke portofolio Binance (BNB).',
-      time: 'Kemarin, 16:15',
+      title: 'Analisis Kondisi Keuanganmu',
+      message:
+        'Total uangmu saat ini Rp 29.550.000. Sebanyak 93% tersimpan aman di rekening Bank.',
+      time: '10 menit lalu',
       isRead: false
     },
     {
       id: 'notif3',
-      title: 'Target Panen Bulan Ini',
-      message: 'Portofolio Anda tumbuh +12.4% bulan ini. Saatnya panen hasil finansialmu!',
-      time: '2 hari lalu',
+      title: 'Pengingat Alokasi Kas E-Wallet',
+      message:
+        'Saldo GoPay (Rp 1,35 Jt) & DANA (Rp 850 Rb) berada di batas aman untuk pengeluaran minggu ini.',
+      time: 'Kemarin',
       isRead: true
     }
   ],
   savingsGoals: [
     {
       id: 'goal1',
-      title: 'Dana Panen Pensiun & Kebebasan Finansial',
-      currentUsd: 18500,
-      targetUsd: 25000,
-      deadline: 'Des 2027'
+      title: 'Pos Dana Darurat & Tabungan Aman',
+      currentUsd: 22_750_000,
+      targetUsd: 30_000_000,
+      deadline: "BCA & Livin' Mandiri",
+      linkedWalletsLabel: "Tersimpan di BCA & Livin' Mandiri"
     },
     {
       id: 'goal2',
-      title: 'Cadangan Likuiditas Kripto & Staking',
-      currentUsd: 5367,
-      targetUsd: 10000,
-      deadline: 'Agu 2027'
+      title: 'Jatah Kas Harian & QRIS (E-Wallet)',
+      currentUsd: 2_200_000,
+      targetUsd: 4_000_000,
+      deadline: 'GoPay & DANA',
+      linkedWalletsLabel: 'Tersedia di GoPay, DANA & E-Wallet'
+    },
+    {
+      id: 'goal3',
+      title: 'Pos Tagihan Rutin & Operasional',
+      currentUsd: 4_600_000,
+      targetUsd: 5_000_000,
+      deadline: 'BRImo (BRI)',
+      linkedWalletsLabel: 'Siap pakai di BRImo & Bank'
     }
   ],
   savedDestinations: [
     {
       id: 'dest1',
-      label: 'BCA • 8820192831 (Alex Pratama)',
-      accountNumber: '8820192831',
-      holderName: 'Alex Pratama'
+      label: 'QRIS & Makan Harian',
+      accountNumber: 'QRIS-TUAI',
+      holderName: 'Pos Kas Harian'
     },
     {
       id: 'dest2',
-      label: 'Mandiri • 13000982144 (Alex Pratama)',
-      accountNumber: '13000982144',
-      holderName: 'Alex Pratama'
+      label: 'Transfer Antar Bank / E-Wallet',
+      accountNumber: 'BI-FAST',
+      holderName: 'Alokasi Saldo'
     },
     {
       id: 'dest3',
-      label: 'Web3 Wallet • 0x89F4...3C2A',
-      accountNumber: '0x89F4...3C2A',
-      holderName: 'External Hardware Wallet'
+      label: 'Tagihan Listrik, Air & Internet',
+      accountNumber: 'PLN-TELKOM',
+      holderName: 'Pos Tagihan Rutin'
+    },
+    {
+      id: 'dest4',
+      label: 'Belanja Kebutuhan Bulanan',
+      accountNumber: 'MART-ID',
+      holderName: 'Pos Kebutuhan Pokok'
     }
   ],
   updatedAt: Date.now()
-};
+});
 
 class TuaiFirebaseService {
   private app: FirebaseApp | null = null;
@@ -237,16 +476,6 @@ class TuaiFirebaseService {
     }
   }
 
-  public clearCustomFirebaseConfig(): void {
-    try {
-      localStorage.removeItem(LOCAL_STORAGE_FB_CONFIG_KEY);
-    } catch {
-      // ignore
-    }
-    this.db = null;
-    this.auth = null;
-  }
-
   public isCloudConnected(): boolean {
     return this.db !== null;
   }
@@ -256,7 +485,7 @@ class TuaiFirebaseService {
       const cfg = this.getEnvOrStoredConfig();
       return `Terhubung ke Firebase Cloud (${cfg?.projectId || 'Firestore'})`;
     }
-    return 'Firebase SDK Siap • Real-Time Local & Cloud Sync Aktif';
+    return 'Plugin Multi-Wallet & Bank Aktif • Real-Time Sync';
   }
 
   public loadLocalWalletState(): TuaiWalletState {
@@ -264,7 +493,7 @@ class TuaiFirebaseService {
       const raw = localStorage.getItem(LOCAL_STORAGE_WALLET_KEY);
       if (!raw) return DEFAULT_INITIAL_WALLET_STATE;
       const parsed = JSON.parse(raw) as Partial<TuaiWalletState>;
-      return {
+      const merged: TuaiWalletState = {
         ...DEFAULT_INITIAL_WALLET_STATE,
         ...parsed,
         assets:
@@ -288,14 +517,16 @@ class TuaiFirebaseService {
             ? parsed.savedDestinations
             : DEFAULT_INITIAL_WALLET_STATE.savedDestinations
       };
+      return recalculateWalletState(merged);
     } catch {
       return DEFAULT_INITIAL_WALLET_STATE;
     }
   }
 
   public async saveWalletState(state: TuaiWalletState): Promise<boolean> {
+    const recalculated = recalculateWalletState(state);
     const payload: TuaiWalletState = {
-      ...state,
+      ...recalculated,
       updatedAt: Date.now()
     };
 
@@ -307,7 +538,7 @@ class TuaiFirebaseService {
 
     if (this.db) {
       try {
-        const walletRef = doc(this.db, 'tuai_wallets', state.walletId);
+        const walletRef = doc(this.db, 'tuai_multiwallets_v2', state.walletId);
         await setDoc(walletRef, payload, { merge: true });
         return true;
       } catch {
@@ -320,14 +551,14 @@ class TuaiFirebaseService {
   public async fetchCloudWalletState(walletId: string): Promise<TuaiWalletState | null> {
     if (!this.db) return null;
     try {
-      const walletRef = doc(this.db, 'tuai_wallets', walletId);
+      const walletRef = doc(this.db, 'tuai_multiwallets_v2', walletId);
       const snap = await getDoc(walletRef);
       if (snap.exists()) {
         const data = snap.data() as Partial<TuaiWalletState>;
-        const merged: TuaiWalletState = {
+        const merged = recalculateWalletState({
           ...DEFAULT_INITIAL_WALLET_STATE,
           ...data
-        };
+        });
         localStorage.setItem(LOCAL_STORAGE_WALLET_KEY, JSON.stringify(merged));
         return merged;
       } else {
@@ -351,22 +582,22 @@ class TuaiFirebaseService {
 
     if (this.db) {
       try {
-        const walletRef = doc(this.db, 'tuai_wallets', walletId);
+        const walletRef = doc(this.db, 'tuai_multiwallets_v2', walletId);
         this.unsubscribeSnapshot = onSnapshot(
           walletRef,
           (snap) => {
             if (snap.exists()) {
               const cloudData = snap.data() as Partial<TuaiWalletState>;
-              const merged: TuaiWalletState = {
+              const merged = recalculateWalletState({
                 ...DEFAULT_INITIAL_WALLET_STATE,
                 ...cloudData
-              };
+              });
               localStorage.setItem(LOCAL_STORAGE_WALLET_KEY, JSON.stringify(merged));
               onUpdate(merged);
             }
           },
           () => {
-            // fallback silently if rules or network block snapshot
+            // fallback silently
           }
         );
       } catch {
@@ -378,7 +609,7 @@ class TuaiFirebaseService {
       if (ev.key === LOCAL_STORAGE_WALLET_KEY && ev.newValue) {
         try {
           const parsed = JSON.parse(ev.newValue) as TuaiWalletState;
-          onUpdate(parsed);
+          onUpdate(recalculateWalletState(parsed));
         } catch {
           // ignore
         }
@@ -422,17 +653,12 @@ class TuaiFirebaseService {
         const cred = await signInWithEmailAndPassword(this.auth, email, password || 'tuai123456');
         return {
           success: true,
-          message: `Berhasil masuk ke Firebase sebagai ${cred.user.displayName || derivedName}`,
+          message: `Berhasil masuk sebagai ${cred.user.displayName || derivedName}`,
           userName: cred.user.displayName || derivedName || 'Alex Pratama',
           userEmail: cred.user.email || email
         };
       } catch {
-        return {
-          success: true,
-          message: `Selamat datang kembali, ${derivedName || 'Alex Pratama'}!`,
-          userName: derivedName || 'Alex Pratama',
-          userEmail: email
-        };
+        // fallback
       }
     }
 
@@ -464,25 +690,14 @@ class TuaiFirebaseService {
     if (this.auth) {
       try {
         await createUserWithEmailAndPassword(this.auth, email, password || 'tuai123456');
-        return {
-          success: true,
-          message: `Akun ${displayName} berhasil didaftarkan di Firebase!`,
-          userName: displayName,
-          userEmail: email
-        };
       } catch {
-        return {
-          success: true,
-          message: `Akun ${displayName} berhasil dibuat & disinkronkan!`,
-          userName: displayName,
-          userEmail: email
-        };
+        // fallback
       }
     }
 
     return {
       success: true,
-      message: `Akun ${displayName} berhasil dibuat!`,
+      message: `Akun ${displayName} berhasil dibuat & terhubung ke 5 Plugin Dompet!`,
       userName: displayName,
       userEmail: email
     };
@@ -505,7 +720,7 @@ class TuaiFirebaseService {
           userEmail: result.user.email || 'alex.pratama@gmail.com'
         };
       } catch {
-        // Fallback if popup blocked or domain not whitelisted yet
+        // fallback
       }
     }
     return {
@@ -521,9 +736,8 @@ class TuaiFirebaseService {
     if (this.auth && clean.includes('@')) {
       try {
         await sendPasswordResetEmail(this.auth, clean);
-        return `Tautan pemulihan kata sandi Firebase telah dikirim ke ${clean}`;
       } catch {
-        // fallback message
+        // fallback
       }
     }
     return `Tautan pemulihan kata sandi telah dikirim ke ${clean}`;
